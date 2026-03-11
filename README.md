@@ -1,3 +1,5 @@
+[中文](README_CN.md) | English
+
 # AdSim
 
 > Simulate before you spend.
