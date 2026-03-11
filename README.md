@@ -4,38 +4,50 @@
 
 > Simulate before you spend.
 
-AI Agent-powered marketing effectiveness prediction engine. Input your budget and marketing strategy, simulate consumer behavior through multi-agent orchestration, and get quantifiable performance predictions.
+AI Agent-powered marketing effectiveness prediction engine. Generate platform-specific user agents, simulate their reactions to your actual ad creatives, and let conversion metrics emerge naturally from agent behavior — not from formulas.
 
-## What It Does
+## How It Works
 
-- **Consumer Behavior Simulation** — Build multi-persona consumer agents that simulate the full journey from exposure to conversion
-- **Budget Allocation Optimization** — Recommend optimal channel budget distribution based on simulation results
-- **Quantifiable Predictions** — Output measurable metrics: ROI, CPA, conversion rates, channel comparisons
-- **Explainable Attribution** — Not just numbers, but *why* a channel performs well or poorly
+Traditional tools predict marketing performance by plugging numbers into statistical models. AdSim takes a fundamentally different approach:
+
+1. **Generate User Agents** — Create hundreds of AI agents representing real platform users (Xiaohongshu users, TikTok users, etc.), each with unique demographics, interests, and behavior patterns
+2. **Simulate Ad Delivery** — Place your actual ad creatives into agents' feeds and let each agent independently decide: Do I notice this? Do I click? Do I buy?
+3. **Emerge, Don't Calculate** — CTR, CVR, CPA and other metrics emerge naturally from aggregated agent behavior, not from industry averages
+4. **Explain the "Why"** — Interview any agent to understand their decision: "Why didn't you convert?" — "The price exceeded my budget for skincare products"
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────┐
-│                  API Layer                   │
-│              (Spring Boot / Kotlin)          │
-├─────────────────────────────────────────────┤
-│              Simulation Engine               │
-│  ┌─────────┐  ┌──────────┐  ┌────────────┐ │
-│  │ Consumer │  │ Channel  │  │  Campaign   │ │
-│  │  Agents  │  │  Agents  │  │ Orchestrator│ │
-│  └─────────┘  └──────────┘  └────────────┘ │
-├─────────────────────────────────────────────┤
-│            MMM Calibration Layer             │
-│  ┌──────────┐  ┌──────────┐  ┌───────────┐ │
-│  │ Adstock  │  │Saturation│  │  Budget    │ │
-│  │  Model   │  │  Curves  │  │ Optimizer  │ │
-│  └──────────┘  └──────────┘  └───────────┘ │
-├─────────────────────────────────────────────┤
-│               Data Layer                     │
-│        MongoDB / Redis                       │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                     API Layer                        │
+│                (Spring Boot / Kotlin)                │
+├─────────────────────────────────────────────────────┤
+│                 Simulation Engine                    │
+│  ┌────────────┐  ┌─────────────┐  ┌──────────────┐ │
+│  │  Agent      │  │  Platform   │  │  Campaign    │ │
+│  │  Generator  │  │  Simulator  │  │  Orchestrator│ │
+│  └────────────┘  └─────────────┘  └──────────────┘ │
+│                                                     │
+│  Agent Generator:  LLM-driven persona creation      │
+│  Platform Simulator: Feed simulation per channel    │
+│  Campaign Orchestrator: Multi-channel coordination  │
+├─────────────────────────────────────────────────────┤
+│                   Data Layer                         │
+│  ┌────────────┐  ┌─────────────┐  ┌──────────────┐ │
+│  │  Industry   │  │  Ad Library │  │  User        │ │
+│  │  Benchmarks │  │  (optional) │  │  Data (opt.) │ │
+│  └────────────┘  └─────────────┘  └──────────────┘ │
+│                 MongoDB / Redis                      │
+└─────────────────────────────────────────────────────┘
 ```
+
+## Key Features
+
+- **Campaign Evaluation** — Input your plan, get multi-dimensional effectiveness predictions with full reasoning chains
+- **Plan Comparison** — Compare Plan A vs Plan B side by side with simulated results
+- **Optimal Recommendation** — Let the system recommend the best budget allocation
+- **Agent Interview** — Drill into any agent's decision to understand *why*
+- **Post-Campaign Validation** — Feed back actual results to measure prediction accuracy
 
 ## Tech Stack
 
@@ -81,9 +93,8 @@ adsim/
 ├── server/               # Kotlin + Spring Boot backend
 │   └── src/main/kotlin/
 │       └── com/adsim/
-│           ├── agent/        # Consumer / Channel agent definitions
+│           ├── agent/        # User agent generation & management
 │           ├── simulation/   # Simulation engine core
-│           ├── mmm/          # Marketing Mix Model (calibration layer)
 │           ├── api/          # REST API controllers
 │           └── model/        # Data models
 ├── web/                  # React + Vite frontend
