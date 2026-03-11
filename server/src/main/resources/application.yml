@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: adsim-server
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/adsim
+    redis:
+      host: localhost
+      port: 6379
+
+server:
+  port: 8080
+
+adsim:
+  llm:
+    api-key: ${LLM_API_KEY:}
+    base-url: ${LLM_BASE_URL:https://api.openai.com/v1}
+    model: ${LLM_MODEL:gpt-4o}
