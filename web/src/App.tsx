@@ -1,11 +1,17 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import CreateSimulation from './pages/CreateSimulation'
+import SimulationResult from './pages/SimulationResult'
+import AgentInterview from './pages/AgentInterview'
+
 function App() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">AdSim</h1>
-        <p className="text-lg text-gray-500">Simulate before you spend.</p>
-      </div>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<CreateSimulation />} />
+        <Route path="/simulation/:id" element={<SimulationResult />} />
+        <Route path="/simulation/:id/agent/:agentId" element={<AgentInterview />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
