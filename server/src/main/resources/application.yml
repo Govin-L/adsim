@@ -17,8 +17,8 @@ adsim:
     base-url: ${LLM_BASE_URL:https://api.openai.com/v1}
     model: ${LLM_MODEL:gpt-4o-mini}
   simulation:
-    max-concurrency: 20
+    max-concurrency: 3
     batch-delay-ms: 100
     max-retries: 3
     min-success-rate: 0.8
-    agent-batch-size: 20
+    agent-batch-size: 5

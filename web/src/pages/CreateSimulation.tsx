@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Sparkles, Plus, X, Send, Loader2, ArrowRight, Package, Target, Megaphone } from 'lucide-react'
-import { api, type SimulationInput, type AdPlacement } from '@/api/client'
+import { toast } from 'sonner'
+import { Sparkles, Plus, X, Send, Loader2, ArrowRight, Package, Target, Megaphone, Clock, CheckCircle2, XCircle, Activity } from 'lucide-react'
+import { api, type SimulationInput, type AdPlacement, type Simulation } from '@/api/client'
 import { templates } from '@/data/templates'
 import LanguageSwitch from '@/components/LanguageSwitch'
 import LlmSettings from '@/components/LlmSettings'
@@ -31,8 +32,13 @@ export default function CreateSimulation() {
   const [rawInput, setRawInput] = useState('')
   const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [agentCount, setAgentCount] = useState(20)
   const [duplicateWarning, setDuplicateWarning] = useState<number | null>(null)
+  const [history, setHistory] = useState<Simulation[]>([])
+
+  useEffect(() => {
+    api.listSimulations().then(setHistory).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (messages.length > 0) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -50,7 +56,6 @@ export default function CreateSimulation() {
     setMessages(prev => [...prev, { role: 'user', content: userMsg }])
     setRawInput(prev => prev ? `${prev}\n${userMsg}` : userMsg)
     setParsing(true)
-    setError(null)
     try {
       const context = plan
         ? `Current plan:\n${JSON.stringify(plan, null, 2)}\n\nUser wants to change:\n${userMsg}`
@@ -61,7 +66,7 @@ export default function CreateSimulation() {
         setMessages(prev => [...prev, { role: 'ai', content: `${t('create.missingFields')} ${res.missingFields.join(', ')}` }])
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Parse failed')
+      toast.error(err instanceof Error ? err.message : 'Parse failed')
     } finally {
       setParsing(false)
     }
@@ -70,12 +75,11 @@ export default function CreateSimulation() {
   const handleSubmit = async () => {
     if (!plan) return
     setSubmitting(true)
-    setError(null)
     try {
-      const sim = await api.createSimulation(plan, rawInput)
+      const sim = await api.createSimulation(plan, rawInput, agentCount)
       navigate(`/simulation/${sim.id}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start')
+      toast.error(err instanceof Error ? err.message : 'Failed to start')
       setSubmitting(false)
     }
   }
@@ -138,12 +142,6 @@ export default function CreateSimulation() {
       {/* Main */}
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-6xl mx-auto px-6 py-8">
-          {error && (
-            <div className="mb-6 px-4 py-3 rounded-lg text-sm bg-error-light text-error border border-error/20 animate-fade">
-              {error}
-            </div>
-          )}
-
           {/* STATE 1: Landing */}
           {!plan && messages.length === 0 && (
             <div className="animate-in">
@@ -188,6 +186,42 @@ export default function CreateSimulation() {
                   )
                 })}
               </div>
+
+              {/* History */}
+              {history.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-medium tracking-wide uppercase text-muted-foreground mb-3 flex items-center gap-1.5">
+                    <Clock size={12} />
+                    {t('create.history.title')}
+                  </h3>
+                  <div className="space-y-2">
+                    {history.slice(0, 5).map(sim => {
+                      const StatusIcon = sim.status === 'COMPLETED' ? CheckCircle2 : sim.status === 'FAILED' ? XCircle : Activity
+                      const statusColor = sim.status === 'COMPLETED' ? 'text-emerald-500' : sim.status === 'FAILED' ? 'text-red-500' : 'text-blue-500'
+                      return (
+                        <div key={sim.id}
+                          className="flex items-center justify-between px-4 py-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => navigate(`/simulation/${sim.id}`)}>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <StatusIcon size={14} className={cn('shrink-0', statusColor)} />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">{sim.input.product.name}</p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {[...new Set(sim.input.adPlacements.map(p => t(`create.platform.${p.platform}`)))].join(' · ')}
+                                {' · '}
+                                {new Date(sim.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] font-mono shrink-0 ml-2">
+                            {t(`result.status.${sim.status}`)}
+                          </Badge>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -391,8 +425,17 @@ export default function CreateSimulation() {
                 </CardContent>
               </Card>
 
-              {/* Submit */}
-              <Button size="lg" className="w-full h-12 text-sm font-semibold tracking-wide bg-teal hover:bg-teal/90 animate-in stagger-5"
+              {/* Agent Count + Submit */}
+              <div className="flex items-center gap-3 animate-in stagger-5">
+                <div className="shrink-0">
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">{t('create.settings.agentCount')}</Label>
+                  <Input type="number" min={1} value={agentCount || ''}
+                    onChange={e => setAgentCount(e.target.value === '' ? 0 : Number(e.target.value))}
+                    onBlur={() => setAgentCount(prev => Math.max(1, prev || 20))}
+                    className="w-24 font-mono text-sm" />
+                </div>
+                <div className="flex-1 pt-5">
+              <Button size="lg" className="w-full h-12 text-sm font-semibold tracking-wide bg-teal hover:bg-teal/90"
                 disabled={submitting} onClick={handleSubmit}>
                 {submitting ? (
                   <><Loader2 size={16} className="mr-2 animate-spin" />{t('create.submitting')}</>
@@ -400,6 +443,8 @@ export default function CreateSimulation() {
                   <><Sparkles size={16} className="mr-2" />{t('create.startSimulation')}</>
                 )}
               </Button>
+                </div>
+              </div>
             </div>
           )}
 

@@ -43,7 +43,13 @@ class SimulationController(
     @PostMapping
     fun create(@RequestBody request: CreateSimulationRequest, httpRequest: HttpServletRequest): Simulation {
         val model = llmRequestConfig.resolve(httpRequest)
-        return simulationService.create(request, model)
+        val concurrency = httpRequest.getHeader("X-LLM-Concurrency")?.toIntOrNull()
+        return simulationService.create(request, model, concurrency)
+    }
+
+    @GetMapping
+    fun list(): List<Simulation> {
+        return simulationService.list()
     }
 
     @GetMapping("/{id}")

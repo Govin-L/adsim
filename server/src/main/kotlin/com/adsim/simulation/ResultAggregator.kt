@@ -13,7 +13,7 @@ class ResultAggregator {
      * Aggregate agent decisions into emerged metrics.
      * Groups similar drop-off reasons using LLM summarization.
      */
-    fun aggregate(agents: List<Agent>, budget: Long): SimulationResults {
+    fun aggregate(agents: List<Agent>, budget: Long, placements: List<AdPlacement> = emptyList()): SimulationResults {
         val withDecisions = agents.filter { it.decisions != null }
         val total = agents.size
         val successful = withDecisions.size
@@ -29,9 +29,21 @@ class ResultAggregator {
         val cvr = if (clicked > 0) converted.toDouble() / clicked else 0.0
         val overallConversionRate = if (successful > 0) converted.toDouble() / successful else 0.0
 
-        // CPA: use overall conversion rate to estimate from budget
-        // This is a simplified calculation, will be refined with CPM benchmarks
-        val estimatedCPA = if (converted > 0) budget.toDouble() / converted * (successful.toDouble() / estimateReach(budget)) else null
+        // CPA calculation:
+        // Each simulated agent = a user who actually SAW the ad.
+        // Total impressions (from CPM benchmark) include users who never saw the ad.
+        // viewability rate converts impressions → actual viewers.
+        // Agent's overallConversionRate = conversion rate among viewers.
+        // CPA = budget / (impressions × viewability × agentConversionRate)
+        val estimatedImpressions = estimateImpressions(placements, budget)
+        val viewabilityRate = 0.50 // industry average: ~50% of impressions are actually viewed
+        val estimatedViewers = estimatedImpressions * viewabilityRate
+        val estimatedConversions = estimatedViewers * overallConversionRate
+        val estimatedCPA = if (estimatedConversions > 0) budget.toDouble() / estimatedConversions else null
+
+        logger.info("CPA calc: impressions={}, viewability={}, viewers={}, agentCVR={}, conversions={}, CPA={}",
+            estimatedImpressions.toLong(), viewabilityRate, estimatedViewers.toLong(),
+            "%.4f".format(overallConversionRate), estimatedConversions.toLong(), estimatedCPA?.let { "%.2f".format(it) })
 
         val dropOffReasons = buildDropOffReasons(withDecisions)
 
@@ -58,11 +70,34 @@ class ResultAggregator {
         )
     }
 
-    private fun estimateReach(budget: Long): Double {
-        // TODO: Use platform-specific CPM benchmarks
-        // Placeholder: assume CPM = ¥35 (Xiaohongshu beauty category)
-        val cpmBenchmark = 35.0
-        return budget / cpmBenchmark * 1000
+    /**
+     * Estimate total impressions from budget, using CPM benchmarks per placement type.
+     * Each placement's budget is divided by its CPM to get impressions, then summed.
+     */
+    private fun estimateImpressions(placements: List<AdPlacement>, totalBudget: Long): Double {
+        if (placements.isEmpty()) {
+            // Fallback: blended CPM
+            return totalBudget / 80.0 * 1000
+        }
+        return placements.sumOf { placement ->
+            val cpm = cpmBenchmark(placement.placementType)
+            placement.budget.toDouble() / cpm * 1000
+        }
+    }
+
+    /**
+     * CPM benchmarks by placement type (¥ per 1000 impressions).
+     * Based on Chinese social media advertising industry averages.
+     */
+    private fun cpmBenchmark(type: PlacementType): Double = when (type) {
+        PlacementType.INFO_FEED -> 40.0       // algorithm-recommended feed ads
+        PlacementType.SEARCH -> 80.0           // user-initiated search, more targeted
+        PlacementType.KOL_SEEDING -> 300.0     // influencer content, includes talent fee
+        PlacementType.SHORT_VIDEO -> 50.0      // short video ads
+        PlacementType.SPLASH_SCREEN -> 25.0    // splash screen, massive reach but low engagement
+        PlacementType.LIVESTREAM -> 150.0       // livestream promotion
+        PlacementType.HASHTAG_CHALLENGE -> 200.0 // branded hashtag challenges
+        PlacementType.SHOPPING -> 60.0          // in-app shopping promotions
     }
 
     private fun buildDropOffReasons(agents: List<Agent>): DropOffReasons {

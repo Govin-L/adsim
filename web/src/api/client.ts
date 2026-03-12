@@ -10,6 +10,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     llmHeaders['X-LLM-Api-Key'] = llm.apiKey
     llmHeaders['X-LLM-Base-Url'] = llm.baseUrl
     llmHeaders['X-LLM-Model'] = llm.model
+    if (llm.concurrency) llmHeaders['X-LLM-Concurrency'] = String(llm.concurrency)
   }
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: { 'Content-Type': 'application/json', ...llmHeaders, ...headers },
@@ -65,6 +66,7 @@ export interface Simulation {
   id: string
   status: 'PENDING' | 'GENERATING' | 'SIMULATING' | 'AGGREGATING' | 'COMPLETED' | 'FAILED'
   progress: { total: number; completed: number }
+  errorMessage: string | null
   input: SimulationInput
   rawInput: string
   results: SimulationResults | null
@@ -141,10 +143,13 @@ export const api = {
       body: JSON.stringify({ content }),
     }),
 
+  listSimulations: () =>
+    request<Simulation[]>('/simulations'),
+
   createSimulation: (input: SimulationInput, rawInput: string, agentCount?: number) =>
     request<Simulation>('/simulations', {
       method: 'POST',
-      body: JSON.stringify({ input, rawInput, agentCount: agentCount || 200 }),
+      body: JSON.stringify({ input, rawInput, agentCount: agentCount || 20 }),
     }),
 
   getSimulation: (id: string) =>

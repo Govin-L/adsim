@@ -8,25 +8,27 @@
     "greeting": "描述你的营销方案，或从模板开始。",
     "templates": {
       "beauty": {
-        "title": "美妆新品推广",
-        "brandName": "珀莱雅",
-        "productName": "深海胶原精华液",
-        "sellingPoints": "深海胶原蛋白肽、28天临床验证抗老、轻薄不油腻",
-        "description": "主打抗老紧致的新品精华液",
-        "creative1": "10位美妆KOL（5万-20万粉丝）拍摄使用前后对比视频，突出质地和28天可见效果",
-        "creative2": "产品图配成分解析和临床数据，引导至旗舰店",
-        "creative3": "卡关键词：抗老精华、胶原蛋白护肤、细纹修复",
-        "region": "一二线城市"
+        "title": "完美日记 · 小黑钻唇釉",
+        "brandName": "完美日记",
+        "productName": "小黑钻唇釉",
+        "category": "彩妆",
+        "sellingPoints": "持久不脱色、哑光丝绒质地、色号齐全、国货彩妆销量TOP1",
+        "description": "爆款明星单品，小红书12万+篇笔记，天猫月销10万+。真实案例：8个月销量增长50倍，用于效果验证对标。",
+        "creative1": "腰部美妆KOL（1万-10万粉丝）试色视频+日常妆容教程，突出持久度和显色度，自然种草风格",
+        "creative2": "唇釉色号合集对比图+使用场景，限时折扣信息，引导天猫旗舰店",
+        "creative3": "卡关键词：平价唇釉推荐、不脱色唇釉、学生党彩妆",
+        "region": "全国"
       },
       "ecommerce": {
-        "title": "电商大促活动",
-        "brandName": "鲜萃",
-        "productName": "冷萃咖啡胶囊（30颗装）",
-        "sellingPoints": "3秒冷萃、阿拉比卡单一产地、零糖零添加、办公室便携胶囊",
-        "description": "月销1万+，618大促7折优惠",
-        "creative1": "15秒办公室场景：打工人开胶囊、加水、秒变冰咖啡，叠加618价格标签",
-        "creative2": "盲测对比咖啡店vs胶囊咖啡，真实反应视频",
-        "creative3": "生活博主分享每日办公室咖啡日常，真实种草风格",
+        "title": "珀莱雅 · 泡泡面膜",
+        "brandName": "珀莱雅",
+        "productName": "泡泡面膜",
+        "category": "护肤品",
+        "sellingPoints": "敷上脸会冒泡的面膜、深层清洁毛孔、使用有趣好玩、平价好用",
+        "description": "现象级爆品，1个月卖出6000万，话题#摇摇泡泡舞#8.7亿阅读。真实案例，用于效果验证对标。",
+        "creative1": "15秒面膜起泡过程拍摄+使用前后毛孔对比，配合#摇摇泡泡舞#话题挑战",
+        "creative2": "达人测评视频：泡泡面膜vs普通面膜盲测对比，突出清洁效果和趣味性",
+        "creative3": "素人用户晒出泡泡面膜使用过程，真实种草笔记风格",
         "region": "全国"
       },
       "app": {
@@ -40,6 +42,9 @@
         "creative3": "多图轮播：App截图展示AI计划生成、训练仪表盘、用户前后对比",
         "region": "一二线城市"
       }
+    },
+    "history": {
+      "title": "历史模拟"
     },
     "chatPlaceholder": "描述你的方案，或输入修改指令...",
     "inputPlaceholder": "用自然语言描述你的营销方案...\n\n示例：我们是珀莱雅，准备推广新出的抗老精华液，定价299元，主打成分天然和临床验证功效。计划在小红书投放50万/月，其中20万做达人种草（找10个美妆KOL拍视频），20万做信息流广告，10万做搜索广告卡关键词。目标受众是25-35岁女性。",
@@ -160,10 +165,15 @@
     },
     "metrics": {
       "attentionRate": "注意率",
+      "attentionRateTip": "在曝光的用户中，注意到广告的比例",
       "ctr": "点击率",
+      "ctrTip": "注意到广告的用户中，点击广告的比例（CTR = Click-Through Rate）",
       "cvr": "转化率",
+      "cvrTip": "点击广告的用户中，最终购买/转化的比例（CVR = Conversion Rate）",
       "overallConversionRate": "总转化率",
-      "estimatedCPA": "预估 CPA"
+      "overallConversionRateTip": "从曝光到最终转化的整体比例 = 注意率 × 点击率 × 转化率",
+      "estimatedCPA": "预估 CPA",
+      "estimatedCPATip": "获取一个转化用户的平均成本（CPA = Cost Per Action），基于预算和预估曝光量计算"
     },
     "funnel": {
       "title": "转化漏斗",
@@ -180,7 +190,8 @@
     },
     "agents": {
       "title": "Agent 列表",
-      "showing": "显示 {{shown}}/{{total}} 个 Agent",
+      "showing": "已显示 {{shown}}/{{total}} 个 Agent",
+      "loadMore": "加载更多",
       "attention": "注意",
       "click": "点击",
       "convert": "转化"
@@ -207,6 +218,8 @@
     "verifying": "验证中...",
     "verifySuccess": "连接成功",
     "verifyFailed": "连接失败",
+    "concurrency": "并发数",
+    "concurrencyHint": "同时请求 LLM 的数量，免费额度建议 1-3",
     "notConfigured": "未配置模型",
     "configured": "模型已配置"
   },

@@ -34,6 +34,7 @@ dependencies {
     // LLM
     implementation("dev.langchain4j:langchain4j:1.12.1")
     implementation("dev.langchain4j:langchain4j-open-ai:1.12.1")
+    implementation("dev.langchain4j:langchain4j-http-client-jdk:1.12.1")
 
     // Test
     testImplementation("org.springframework.boot:spring-boot-starter-test")

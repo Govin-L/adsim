@@ -52,5 +52,6 @@ data class Decisions(
 
 data class StageDecision(
     val passed: Boolean,
-    val reasoning: String
+    val reasoning: String,
+    val score: Int = 0 // 0-100, LLM rates appeal/intent, system decides passed via threshold
 )

@@ -12,6 +12,8 @@ export default function SimulationResult() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [simulation, setSimulation] = useState<Simulation | null>(null)
+  const [agentPage, setAgentPage] = useState(1)
+  const agentPageSize = 20
   const [agents, setAgents] = useState<Agent[]>([])
   const [error, setError] = useState<string | null>(null)
 
@@ -19,18 +21,49 @@ export default function SimulationResult() {
     if (!id) return
     api.getSimulation(id).then(setSimulation).catch(() => setError(t('result.notFound')))
 
-    const es = api.subscribeProgress(id)
-    es.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      setSimulation(prev => prev ? { ...prev, progress: data } : prev)
-      if (data.status === 'completed' || data.status === 'failed') {
-        es.close()
-        api.getSimulation(id).then(setSimulation)
-        api.getAgents(id).then(setAgents)
+    let es: EventSource | null = null
+    let done = false
+
+    const connect = () => {
+      if (done) return
+      es = api.subscribeProgress(id)
+      es.onmessage = (event) => {
+        const data = JSON.parse(event.data)
+        const statusMap: Record<string, string> = { generating: 'GENERATING', running: 'SIMULATING', completed: 'COMPLETED', failed: 'FAILED' }
+        setSimulation(prev => prev ? {
+          ...prev,
+          progress: { total: data.total, completed: data.completed },
+          ...(statusMap[data.status] ? { status: statusMap[data.status] as Simulation['status'] } : {}),
+          ...(data.error ? { errorMessage: data.error, status: 'FAILED' as const } : {})
+        } : prev)
+        if (data.status === 'completed' || data.status === 'failed') {
+          done = true
+          es?.close()
+          api.getSimulation(id).then(setSimulation)
+          api.getAgents(id).then(setAgents)
+        }
+      }
+      es.onerror = () => {
+        es?.close()
+        if (!done) {
+          // Reconnect after 2s, also poll current state
+          api.getSimulation(id).then(sim => {
+            if (sim) {
+              setSimulation(sim)
+              if (sim.status === 'COMPLETED' || sim.status === 'FAILED') {
+                done = true
+                if (sim.status === 'COMPLETED') api.getAgents(id).then(setAgents)
+                return
+              }
+            }
+            setTimeout(connect, 2000)
+          }).catch(() => setTimeout(connect, 2000))
+        }
       }
     }
-    es.onerror = () => es.close()
-    return () => es.close()
+    connect()
+
+    return () => { done = true; es?.close() }
   }, [id, t])
 
   useEffect(() => {
@@ -71,7 +104,7 @@ export default function SimulationResult() {
             <div>
               <h1 className="text-lg font-semibold" style={{ letterSpacing: '-0.01em' }}>{simulation.input.product.name}</h1>
               <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
-                {simulation.input.platform} &middot; ¥{simulation.input.budget.toLocaleString()} {t('result.budget')}
+                {[...new Set(simulation.input.adPlacements.map(p => p.platform))].join(' · ')} &middot; ¥{simulation.input.totalBudget.toLocaleString()} {t('result.budget')}
               </p>
             </div>
           </div>
@@ -93,6 +126,71 @@ export default function SimulationResult() {
             <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--color-border-subtle)' }}>
               <div className="h-2 rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'var(--color-text)', animation: pct < 100 ? 'pulse-bar 2s ease-in-out infinite' : 'none' }} />
             </div>
+
+            {/* Plan Summary */}
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Product */}
+              <div className="p-4 rounded-xl" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-tertiary)' }}>{t('create.product.title')}</p>
+                <p className="text-sm font-medium">{simulation.input.product.brandName} · {simulation.input.product.name}</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  ¥{simulation.input.product.price} · {simulation.input.product.category}
+                </p>
+                <p className="text-xs mt-1.5 line-clamp-2" style={{ color: 'var(--color-text-tertiary)' }}>
+                  {simulation.input.product.sellingPoints}
+                </p>
+              </div>
+
+              {/* Audience */}
+              <div className="p-4 rounded-xl" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-tertiary)' }}>{t('create.audience.title')}</p>
+                <p className="text-sm font-medium">
+                  {simulation.input.targetAudience.gender === 'all' ? t('create.audience.genderAll') : simulation.input.targetAudience.gender === 'female' ? t('create.audience.genderFemale') : t('create.audience.genderMale')}
+                  {simulation.input.targetAudience.ageRange && ` · ${simulation.input.targetAudience.ageRange[0]}-${simulation.input.targetAudience.ageRange[1]}${t('create.audience.ageMax').charAt(t('create.audience.ageMax').length - 1) === '龄' ? '岁' : ''}`}
+                </p>
+                {simulation.input.targetAudience.region && (
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>{simulation.input.targetAudience.region}</p>
+                )}
+              </div>
+
+              {/* Placements */}
+              <div className="p-4 rounded-xl" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-tertiary)' }}>{t('create.placement.title')}</p>
+                <div className="space-y-1.5">
+                  {simulation.input.adPlacements.map((p, i) => (
+                    <div key={i} className="flex justify-between text-xs">
+                      <span>{t(`create.platform.${p.platform}`)}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>¥{p.budget.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Simulation stages */}
+            <div className="mt-6 flex items-center justify-center gap-3">
+              {(['GENERATING', 'SIMULATING', 'AGGREGATING'] as const).map((stage, i) => {
+                const isDone = ['GENERATING', 'SIMULATING', 'AGGREGATING'].indexOf(simulation.status) > i
+                const isCurrent = simulation.status === stage
+                return (
+                  <div key={stage} className="flex items-center gap-3">
+                    {i > 0 && <div className="w-8 h-px" style={{ background: isDone ? 'var(--color-text)' : 'var(--color-border)' }} />}
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full" style={{
+                        background: isDone ? 'var(--color-text)' : isCurrent ? 'var(--color-accent)' : 'var(--color-border)',
+                        animation: isCurrent ? 'pulse 2s ease-in-out infinite' : 'none'
+                      }} />
+                      <span className="text-[11px]" style={{
+                        color: isDone ? 'var(--color-text)' : isCurrent ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
+                        fontWeight: isCurrent ? 600 : 400
+                      }}>
+                        {t(`result.status.${stage}`)}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
 
@@ -109,7 +207,7 @@ export default function SimulationResult() {
                 {t('result.agents.title')} <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)' }}>({agents.length})</span>
               </h2>
               <div className="space-y-2">
-                {agents.slice(0, 20).map(agent => (
+                {agents.slice(0, agentPage * agentPageSize).map(agent => (
                   <div key={agent.id}
                     onClick={() => navigate(`/simulation/${id}/agent/${agent.id}`)}
                     className="p-4 rounded-xl flex justify-between items-center cursor-pointer transition-all"
@@ -131,10 +229,17 @@ export default function SimulationResult() {
                   </div>
                 ))}
               </div>
-              {agents.length > 20 && (
-                <p className="text-xs text-center mt-4" style={{ color: 'var(--color-text-tertiary)' }}>
-                  {t('result.agents.showing', { shown: 20, total: agents.length })}
-                </p>
+              {agents.length > agentPage * agentPageSize && (
+                <button
+                  onClick={() => setAgentPage(p => p + 1)}
+                  className="w-full mt-3 py-2.5 rounded-lg text-xs font-medium cursor-pointer transition-colors"
+                  style={{ color: 'var(--color-text-tertiary)', border: '1px dashed var(--color-border)' }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--color-text-tertiary)'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--color-border)'}
+                >
+                  {t('result.agents.showing', { shown: Math.min(agentPage * agentPageSize, agents.length), total: agents.length })}
+                  {' · '}{t('result.agents.loadMore')}
+                </button>
               )}
             </section>
           </>
@@ -144,6 +249,11 @@ export default function SimulationResult() {
         {simulation.status === 'FAILED' && (
           <div className="text-center py-20 animate-fade">
             <p className="text-lg font-medium" style={{ color: 'var(--color-error)' }}>{t('result.failed.title')}</p>
+            {simulation.errorMessage && (
+              <p className="mt-3 text-sm max-w-lg mx-auto px-4 py-3 rounded-lg" style={{ color: 'var(--color-text-secondary)', background: 'var(--color-error-bg)' }}>
+                {simulation.errorMessage}
+              </p>
+            )}
             <button onClick={() => navigate('/')}
               className="mt-6 px-6 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-opacity"
               style={{ background: 'var(--color-text)', color: 'var(--color-bg)' }}

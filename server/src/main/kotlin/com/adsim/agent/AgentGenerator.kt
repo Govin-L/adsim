@@ -2,14 +2,19 @@ package com.adsim.agent
 
 import com.adsim.config.SimulationConfig
 import com.adsim.model.*
+import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.request.ChatRequest
 import dev.langchain4j.data.message.SystemMessage
 import dev.langchain4j.data.message.UserMessage
+import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.util.concurrent.atomic.AtomicInteger
 
 @Component
 class AgentGenerator(
@@ -17,26 +22,40 @@ class AgentGenerator(
 ) {
     private val logger = LoggerFactory.getLogger(AgentGenerator::class.java)
     private val objectMapper = jacksonObjectMapper()
+        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
-    suspend fun generate(input: SimulationInput, count: Int, chatModel: ChatModel): List<Agent> {
+    suspend fun generate(
+        input: SimulationInput,
+        count: Int,
+        chatModel: ChatModel,
+        concurrency: Int = 2,
+        onProgress: (generated: Int, total: Int) -> Unit = { _, _ -> }
+    ): List<Agent> {
         val platform = input.adPlacements.firstOrNull()?.platform ?: "xiaohongshu"
-        logger.info("Generating {} agents for platform: {}", count, platform)
+        logger.info("Generating {} agents for platform: {}, concurrency: {}", count, platform, concurrency)
 
-        val agents = mutableListOf<Agent>()
         val batchSize = config.agentBatchSize
         val batches = (count + batchSize - 1) / batchSize
+        val generated = AtomicInteger(0)
+        val semaphore = Semaphore(concurrency)
 
-        for (i in 0 until batches) {
-            val remaining = count - agents.size
-            val currentBatchSize = minOf(batchSize, remaining)
-            val batchIndex = i + 1
-
-            logger.info("Generating agent batch {}/{}, size: {}", batchIndex, batches, currentBatchSize)
-
-            val batchAgents = generateBatch(input, currentBatchSize, batchIndex, batches, chatModel)
-            agents.addAll(batchAgents)
+        val results = coroutineScope {
+            (0 until batches).map { i ->
+                val currentBatchSize = if (i < batches - 1) batchSize else count - batchSize * i
+                val batchIndex = i + 1
+                async {
+                    semaphore.withPermit {
+                        logger.info("Generating agent batch {}/{}, size: {}", batchIndex, batches, currentBatchSize)
+                        val batchAgents = generateBatch(input, currentBatchSize, batchIndex, batches, chatModel)
+                        val total = generated.addAndGet(batchAgents.size)
+                        onProgress(total, count)
+                        batchAgents
+                    }
+                }
+            }.awaitAll()
         }
 
+        val agents = results.flatten()
         logger.info("Agent generation complete: {} agents", agents.size)
         return agents
     }

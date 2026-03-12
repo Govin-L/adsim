@@ -13,6 +13,7 @@ data class Simulation(
     val input: SimulationInput,
     val rawInput: String = "",
     val results: SimulationResults? = null,
+    val errorMessage: String? = null,
     val createdAt: Instant = Instant.now(),
     val completedAt: Instant? = null
 )

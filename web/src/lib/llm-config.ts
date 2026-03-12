@@ -2,6 +2,7 @@ export interface LlmConfig {
   apiKey: string
   baseUrl: string
   model: string
+  concurrency?: number | undefined
 }
 
 const STORAGE_KEY = 'adsim-llm-config'

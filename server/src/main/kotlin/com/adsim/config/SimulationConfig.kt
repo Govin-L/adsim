@@ -8,5 +8,5 @@ data class SimulationConfig(
     val batchDelayMs: Long = 100,
     val maxRetries: Int = 3,
     val minSuccessRate: Double = 0.8,
-    val agentBatchSize: Int = 20
+    val agentBatchSize: Int = 5
 )

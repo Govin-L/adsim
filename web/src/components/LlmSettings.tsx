@@ -12,7 +12,7 @@ import { getLlmConfig, saveLlmConfig, isLlmConfigured, type LlmConfig } from '@/
 export default function LlmSettings() {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const [config, setConfig] = useState<LlmConfig>({ apiKey: '', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' })
+  const [config, setConfig] = useState<LlmConfig>({ apiKey: '', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', concurrency: 5 })
   const [saved, setSaved] = useState(false)
   const [configured, setConfigured] = useState(isLlmConfigured())
   const [verifying, setVerifying] = useState(false)
@@ -82,6 +82,14 @@ export default function LlmSettings() {
             <Input value={config.model} placeholder={t('settings.modelPlaceholder')}
               onChange={e => { setConfig(c => ({ ...c, model: e.target.value })); setVerifyResult(null) }}
               className="mt-1.5 font-mono text-sm" />
+          </div>
+          <div>
+            <Label className="text-xs">{t('settings.concurrency')}</Label>
+            <Input type="number" min={1} value={config.concurrency ?? ''}
+              onChange={e => setConfig(c => ({ ...c, concurrency: e.target.value === '' ? undefined : Number(e.target.value) }))}
+              onBlur={() => setConfig(c => ({ ...c, concurrency: Math.max(1, c.concurrency || 5) }))}
+              className="mt-1.5 font-mono text-sm" />
+            <p className="text-[10px] text-muted-foreground mt-1">{t('settings.concurrencyHint')}</p>
           </div>
 
           {/* Verify result */}
