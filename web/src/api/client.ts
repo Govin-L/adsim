@@ -1,9 +1,18 @@
+import { getLlmConfig } from '@/lib/llm-config'
+
 const BASE_URL = '/api'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const { headers, ...rest } = options || {}
+  const llm = getLlmConfig()
+  const llmHeaders: Record<string, string> = {}
+  if (llm) {
+    llmHeaders['X-LLM-Api-Key'] = llm.apiKey
+    llmHeaders['X-LLM-Base-Url'] = llm.baseUrl
+    llmHeaders['X-LLM-Model'] = llm.model
+  }
   const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...headers },
+    headers: { 'Content-Type': 'application/json', ...llmHeaders, ...headers },
     ...rest,
   })
   if (!res.ok) {
@@ -12,32 +21,52 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json()
 }
 
-export interface CreateSimulationRequest {
-  product: {
-    name: string
-    price: number
-    category: string
-    description?: string
-  }
-  creative: {
-    description: string
-    format?: 'VIDEO' | 'IMAGE' | 'TEXT'
-  }
+/* ---- Types ---- */
+
+export interface Product {
+  brandName: string
+  name: string
+  price: number
+  category: string
+  sellingPoints: string
+  productStage: 'NEW_LAUNCH' | 'ESTABLISHED' | 'BESTSELLER'
+  description?: string
+}
+
+export interface AdPlacement {
   platform: string
+  placementType: string
+  objectives: string[]
+  format: string
   budget: number
-  targetAudience: {
-    ageRange?: number[]
-    gender?: string
-    interests?: string[]
-  }
-  agentCount?: number
+  creativeDescription: string
+}
+
+export interface TargetAudience {
+  ageRange?: number[]
+  gender?: string
+  region?: string
+  interests?: string[]
+}
+
+export interface SimulationInput {
+  product: Product
+  adPlacements: AdPlacement[]
+  totalBudget: number
+  targetAudience: TargetAudience
+}
+
+export interface ParsePlanResponse {
+  input: SimulationInput
+  missingFields: string[]
 }
 
 export interface Simulation {
   id: string
   status: 'PENDING' | 'GENERATING' | 'SIMULATING' | 'AGGREGATING' | 'COMPLETED' | 'FAILED'
   progress: { total: number; completed: number }
-  input: CreateSimulationRequest
+  input: SimulationInput
+  rawInput: string
   results: SimulationResults | null
   createdAt: string
   completedAt: string | null
@@ -98,11 +127,24 @@ export interface InterviewResponse {
   conversationId: string
 }
 
+/* ---- API ---- */
+
 export const api = {
-  createSimulation: (data: CreateSimulationRequest) =>
+  verifyLlm: () =>
+    request<{ success: boolean; reply?: string; error?: string }>('/simulations/verify-llm', {
+      method: 'POST',
+    }),
+
+  parsePlan: (content: string) =>
+    request<ParsePlanResponse>('/simulations/parse', {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+
+  createSimulation: (input: SimulationInput, rawInput: string, agentCount?: number) =>
     request<Simulation>('/simulations', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ input, rawInput, agentCount: agentCount || 200 }),
     }),
 
   getSimulation: (id: string) =>

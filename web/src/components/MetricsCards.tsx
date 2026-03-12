@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 interface Props {
   metrics: {
     attentionRate: number
@@ -9,20 +11,28 @@ interface Props {
 }
 
 export default function MetricsCards({ metrics }: Props) {
+  const { t } = useTranslation()
+
   const cards = [
-    { label: 'Attention Rate', value: pct(metrics.attentionRate) },
-    { label: 'CTR', value: pct(metrics.ctr) },
-    { label: 'CVR', value: pct(metrics.cvr) },
-    { label: 'Overall Conv. Rate', value: pct(metrics.overallConversionRate) },
-    { label: 'Est. CPA', value: metrics.estimatedCPA != null ? `¥${metrics.estimatedCPA.toFixed(0)}` : 'N/A' },
+    { key: 'attentionRate', label: t('result.metrics.attentionRate'), value: pct(metrics.attentionRate) },
+    { key: 'ctr', label: t('result.metrics.ctr'), value: pct(metrics.ctr) },
+    { key: 'cvr', label: t('result.metrics.cvr'), value: pct(metrics.cvr) },
+    { key: 'overall', label: t('result.metrics.overallConversionRate'), value: pct(metrics.overallConversionRate) },
+    { key: 'cpa', label: t('result.metrics.estimatedCPA'), value: metrics.estimatedCPA != null ? `¥${metrics.estimatedCPA.toFixed(0)}` : '—' },
   ]
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-      {cards.map(card => (
-        <div key={card.label} className="p-4 border rounded-lg text-center">
-          <div className="text-2xl font-bold">{card.value}</div>
-          <div className="text-xs text-gray-500 mt-1">{card.label}</div>
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+      {cards.map((card, i) => (
+        <div key={card.key}
+          className={`p-4 rounded-xl animate-in stagger-${i + 1}`}
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+          <div className="text-2xl font-semibold tracking-tight" style={{ fontFamily: 'var(--font-mono)' }}>
+            {card.value}
+          </div>
+          <div className="mt-1.5 text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>
+            {card.label}
+          </div>
         </div>
       ))}
     </div>

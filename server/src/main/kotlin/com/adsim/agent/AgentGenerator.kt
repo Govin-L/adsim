@@ -13,14 +13,14 @@ import org.springframework.stereotype.Component
 
 @Component
 class AgentGenerator(
-    private val chatModel: ChatModel,
     private val config: SimulationConfig
 ) {
     private val logger = LoggerFactory.getLogger(AgentGenerator::class.java)
     private val objectMapper = jacksonObjectMapper()
 
-    suspend fun generate(input: SimulationInput, count: Int): List<Agent> {
-        logger.info("Generating {} agents for platform: {}", count, input.platform)
+    suspend fun generate(input: SimulationInput, count: Int, chatModel: ChatModel): List<Agent> {
+        val platform = input.adPlacements.firstOrNull()?.platform ?: "xiaohongshu"
+        logger.info("Generating {} agents for platform: {}", count, platform)
 
         val agents = mutableListOf<Agent>()
         val batchSize = config.agentBatchSize
@@ -33,7 +33,7 @@ class AgentGenerator(
 
             logger.info("Generating agent batch {}/{}, size: {}", batchIndex, batches, currentBatchSize)
 
-            val batchAgents = generateBatch(input, currentBatchSize, batchIndex, batches)
+            val batchAgents = generateBatch(input, currentBatchSize, batchIndex, batches, chatModel)
             agents.addAll(batchAgents)
         }
 
@@ -41,9 +41,10 @@ class AgentGenerator(
         return agents
     }
 
-    private fun generateBatch(input: SimulationInput, batchSize: Int, batchIndex: Int, totalBatches: Int): List<Agent> {
-        val systemPrompt = buildSystemPrompt(input)
-        val userPrompt = buildUserPrompt(input, batchSize, batchIndex, totalBatches)
+    private fun generateBatch(input: SimulationInput, batchSize: Int, batchIndex: Int, totalBatches: Int, chatModel: ChatModel): List<Agent> {
+        val platform = input.adPlacements.firstOrNull()?.platform ?: "xiaohongshu"
+        val systemPrompt = buildSystemPrompt(platform)
+        val userPrompt = buildUserPrompt(input, platform, batchSize, batchIndex, totalBatches)
 
         val response = chatModel.chat(
             ChatRequest.builder()
@@ -55,10 +56,10 @@ class AgentGenerator(
         return parseAgents(content)
     }
 
-    private fun buildSystemPrompt(input: SimulationInput): String {
+    private fun buildSystemPrompt(platform: String): String {
         return """
 You are a user persona generator for marketing simulation.
-You generate realistic, diverse user personas for the ${input.platform} platform.
+You generate realistic, diverse user personas for the $platform platform.
 
 Each persona must be unique with distinct demographics, interests, and behaviors.
 Include users who would AND would NOT be interested in the advertised product.
@@ -68,19 +69,22 @@ Output valid JSON only.
         """.trimIndent()
     }
 
-    private fun buildUserPrompt(input: SimulationInput, batchSize: Int, batchIndex: Int, totalBatches: Int): String {
+    private fun buildUserPrompt(input: SimulationInput, platform: String, batchSize: Int, batchIndex: Int, totalBatches: Int): String {
         val ageRange = input.targetAudience.ageRange
         return """
-Generate $batchSize unique ${input.platform} user personas.
+Generate $batchSize unique $platform user personas.
 
 This is batch $batchIndex of $totalBatches. Ensure diversity across batches:
 - Batch focus: vary age groups, income levels, city tiers, and interests
 - Include both target audience members AND non-target users
 - About 40-60% should roughly match the target audience, the rest should not
 
-Platform: ${input.platform}
-Product being advertised: ${input.product.name} (${input.product.category}, ¥${input.product.price})
-Target audience: ${input.targetAudience.gender}, age ${ageRange[0]}-${ageRange[1]}, interests: ${input.targetAudience.interests.joinToString(", ")}
+Platform: $platform
+Brand: ${input.product.brandName}
+Product: ${input.product.name} (${input.product.category}, ¥${input.product.price})
+Product stage: ${input.product.productStage}
+Key selling points: ${input.product.sellingPoints}
+Target audience: ${input.targetAudience.gender}, age ${ageRange[0]}-${ageRange[1]}${if (input.targetAudience.region.isNotBlank()) ", region: ${input.targetAudience.region}" else ""}${if (input.targetAudience.interests.isNotEmpty()) ", interests: ${input.targetAudience.interests.joinToString(", ")}" else ""}
 
 Output JSON format:
 {

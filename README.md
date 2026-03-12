@@ -52,7 +52,7 @@ Traditional tools predict marketing performance by plugging numbers into statist
 ## Tech Stack
 
 - **Backend**: Kotlin + Spring Boot 3 + Langchain4j
-- **Frontend**: React + Vite + Tailwind CSS
+- **Frontend**: React + Vite + Tailwind CSS + shadcn/ui
 - **Database**: MongoDB + Redis
 - **Deployment**: Docker Compose
 

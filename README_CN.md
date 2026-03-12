@@ -52,7 +52,7 @@
 ## 技术栈
 
 - **后端**: Kotlin + Spring Boot 3 + Langchain4j
-- **前端**: React + Vite + Tailwind CSS
+- **前端**: React + Vite + Tailwind CSS + shadcn/ui
 - **数据库**: MongoDB + Redis
 - **部署**: Docker Compose
 

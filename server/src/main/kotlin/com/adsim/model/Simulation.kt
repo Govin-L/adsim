@@ -11,6 +11,7 @@ data class Simulation(
     val status: SimulationStatus = SimulationStatus.PENDING,
     val progress: Progress = Progress(),
     val input: SimulationInput,
+    val rawInput: String = "",
     val results: SimulationResults? = null,
     val createdAt: Instant = Instant.now(),
     val completedAt: Instant? = null
@@ -27,30 +28,49 @@ data class Progress(
 
 data class SimulationInput(
     val product: Product,
-    val creative: Creative,
-    val platform: String = "xiaohongshu",
-    val budget: Long,
+    val adPlacements: List<AdPlacement>,
+    val totalBudget: Long,
     val targetAudience: TargetAudience
 )
 
 data class Product(
+    val brandName: String,
     val name: String,
     val price: Double,
     val category: String,
+    val sellingPoints: String,
+    val productStage: ProductStage,
     val description: String = ""
 )
 
-data class Creative(
-    val description: String,
-    val format: CreativeFormat = CreativeFormat.VIDEO
+enum class ProductStage {
+    NEW_LAUNCH, ESTABLISHED, BESTSELLER
+}
+
+data class AdPlacement(
+    val platform: String,
+    val placementType: PlacementType,
+    val objectives: List<CampaignObjective>,
+    val format: CreativeFormat,
+    val budget: Long,
+    val creativeDescription: String
 )
 
+enum class PlacementType {
+    INFO_FEED, SEARCH, KOL_SEEDING, SHORT_VIDEO, SPLASH_SCREEN, LIVESTREAM, HASHTAG_CHALLENGE, SHOPPING
+}
+
+enum class CampaignObjective {
+    BRAND_AWARENESS, SEEDING, TRAFFIC, CONVERSION, LEAD_GENERATION
+}
+
 enum class CreativeFormat {
-    VIDEO, IMAGE, TEXT
+    VIDEO, IMAGE, IMAGE_TEXT, CAROUSEL
 }
 
 data class TargetAudience(
     val ageRange: List<Int> = listOf(18, 65),
     val gender: String = "all",
+    val region: String = "",
     val interests: List<String> = emptyList()
 )

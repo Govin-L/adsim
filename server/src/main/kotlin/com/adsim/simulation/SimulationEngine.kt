@@ -17,7 +17,6 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @Component
 class SimulationEngine(
-    private val chatModel: ChatModel,
     private val agentRepository: AgentRepository,
     private val config: SimulationConfig
 ) {
@@ -27,6 +26,7 @@ class SimulationEngine(
     suspend fun run(
         input: SimulationInput,
         agents: List<Agent>,
+        chatModel: ChatModel,
         onProgress: (completed: Int) -> Unit
     ) {
         logger.info("Running simulation for {} agents", agents.size)
@@ -38,7 +38,7 @@ class SimulationEngine(
             agents.map { agent ->
                 async {
                     semaphore.withPermit {
-                        simulateAgent(input, agent)
+                        simulateAgent(input, agent, chatModel)
                         val count = completed.incrementAndGet()
                         if (count % 10 == 0 || count == agents.size) {
                             onProgress(count)
@@ -51,12 +51,12 @@ class SimulationEngine(
         logger.info("Simulation complete: {} agents processed", completed.get())
     }
 
-    private suspend fun simulateAgent(input: SimulationInput, agent: Agent) {
+    private suspend fun simulateAgent(input: SimulationInput, agent: Agent, chatModel: ChatModel) {
         var lastException: Exception? = null
 
         repeat(config.maxRetries) { attempt ->
             try {
-                val decisions = callLlm(input, agent)
+                val decisions = callLlm(input, agent, chatModel)
                 if (decisions != null) {
                     agentRepository.save(agent.copy(decisions = decisions))
                     return
@@ -71,7 +71,7 @@ class SimulationEngine(
         logger.error("Simulation failed for agent {} after {} retries", agent.id, config.maxRetries, lastException)
     }
 
-    private fun callLlm(input: SimulationInput, agent: Agent): Decisions? {
+    private fun callLlm(input: SimulationInput, agent: Agent, chatModel: ChatModel): Decisions? {
         val systemPrompt = buildSystemPrompt(input)
         val userPrompt = buildUserPrompt(input, agent)
 
@@ -85,8 +85,9 @@ class SimulationEngine(
     }
 
     private fun buildSystemPrompt(input: SimulationInput): String {
+        val platform = input.adPlacements.firstOrNull()?.platform ?: "xiaohongshu"
         return """
-You are simulating a real ${input.platform} user seeing an advertisement in their feed.
+You are simulating a real $platform user seeing an advertisement in their feed.
 You must stay completely in character based on the persona provided.
 Your decisions must be grounded in the persona's specific attributes — not generic responses.
 
@@ -102,6 +103,8 @@ Output valid JSON only.
 
     private fun buildUserPrompt(input: SimulationInput, agent: Agent): String {
         val persona = agent.persona
+        val placement = input.adPlacements.firstOrNull()
+        val platform = placement?.platform ?: "xiaohongshu"
         return """
 You are: ${persona.name}, ${persona.age} years old, ${persona.gender}
 Income: ${persona.income}, City tier: ${persona.cityTier}
@@ -112,11 +115,15 @@ Price sensitivity: ${persona.consumptionHabits.priceSensitivity}
 Decision speed: ${persona.consumptionHabits.decisionSpeed}
 Brand loyalty: ${persona.consumptionHabits.brandLoyalty}
 
-You are scrolling through your ${input.platform} feed. An ad appears:
+You are on $platform. An ad appears via ${placement?.placementType ?: "INFO_FEED"}:
+- Brand: ${input.product.brandName}
 - Product: ${input.product.name} (${input.product.category}, ¥${input.product.price})
-- Product description: ${input.product.description}
-- Ad creative: ${input.creative.description}
-- Ad format: ${input.creative.format}
+- Key selling points: ${input.product.sellingPoints}
+- Product stage: ${input.product.productStage} ${if (input.product.productStage.name == "NEW_LAUNCH") "(new, no reviews yet)" else if (input.product.productStage.name == "BESTSELLER") "(popular, many positive reviews)" else "(some reviews available)"}
+${if (input.product.description.isNotBlank()) "- Additional info: ${input.product.description}" else ""}
+- Ad creative: ${placement?.creativeDescription ?: ""}
+- Ad format: ${placement?.format ?: "VIDEO"}
+- Campaign objectives: ${placement?.objectives?.joinToString(", ") ?: "CONVERSION"}
 
 Make your decision at each stage. Each stage ONLY happens if the previous stage passed.
 Think from YOUR perspective as this specific person.

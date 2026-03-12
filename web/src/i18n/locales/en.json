@@ -1,0 +1,235 @@
+{
+  "app": {
+    "name": "AdSim",
+    "tagline": "Simulate before you spend."
+  },
+  "create": {
+    "title": "New Simulation",
+    "greeting": "Describe your marketing plan, or start from a template.",
+    "templates": {
+      "beauty": {
+        "title": "Beauty Product Launch",
+        "brandName": "PMPM",
+        "productName": "Deep Sea Collagen Serum",
+        "sellingPoints": "Deep-sea collagen peptides, clinically proven anti-aging in 28 days, lightweight non-greasy texture",
+        "description": "A new anti-aging serum targeting fine lines and skin elasticity",
+        "creative1": "10 beauty KOLs (50K-200K followers) create before/after video reviews, focusing on texture and 28-day visible results",
+        "creative2": "Product shots with ingredient highlights and clinical data, CTA to flagship store",
+        "creative3": "Target keywords: anti-aging serum, collagen skincare, fine line repair",
+        "region": "Tier 1-2 cities"
+      },
+      "ecommerce": {
+        "title": "E-commerce Promotion",
+        "brandName": "FreshBrew",
+        "productName": "Cold Brew Coffee Capsules (30-pack)",
+        "sellingPoints": "3-second cold brew, Arabica single origin, zero sugar zero additives, office-friendly capsule",
+        "description": "10K+ units/month, preparing for 618 promotion with 30% discount",
+        "creative1": "15s office scenario: worker opens capsule, adds water, instant iced coffee. 618 price tag overlay",
+        "creative2": "Side-by-side taste test vs cafe coffee, blind taste reaction video",
+        "creative3": "Lifestyle bloggers share daily office coffee routine, authentic review style",
+        "region": "Nationwide"
+      },
+      "app": {
+        "title": "App Download Campaign",
+        "brandName": "FitTrack",
+        "productName": "FitTrack - AI Workout Planner",
+        "sellingPoints": "AI personalized workout plans, real-time form correction via camera, free basic plan",
+        "description": "Fitness app targeting gym beginners who need guided workouts",
+        "creative1": "Split screen: struggling with random exercises vs following AI-guided plan. CTA: Download free",
+        "creative2": "Fitness KOLs document 7-day challenge, showing AI form correction in action",
+        "creative3": "Carousel: app screenshots - AI plan generation, workout dashboard, user stories",
+        "region": "Tier 1-2 cities"
+      }
+    },
+    "chatPlaceholder": "Describe your plan or say what to change...",
+    "inputPlaceholder": "Describe your marketing plan in natural language...\n\nExample: We are PROYA, launching a new anti-aging serum priced at ¥299. Key selling points are natural ingredients and clinically proven efficacy. Plan to spend ¥500K/month on Xiaohongshu: ¥200K on KOL seeding (10 beauty KOLs, video content), ¥200K on in-feed ads, ¥100K on search ads. Target audience: women aged 25-35.",
+    "parseButton": "Parse Plan",
+    "parsing": "Analyzing your plan...",
+    "confirmTitle": "Confirm Your Plan",
+    "confirmDescription": "AI has extracted the following from your description. Review and edit before starting simulation.",
+    "missingFields": "The following information could not be determined and may need your input:",
+    "startSimulation": "Start Simulation",
+    "editPlan": "Edit Plan",
+    "backToInput": "Back to input",
+    "advancedMode": "Advanced mode (manual form)",
+    "placement": {
+      "title": "Ad Placements",
+      "platform": "Platform",
+      "type": "Placement Type",
+      "objective": "Objective",
+      "format": "Format",
+      "budget": "Budget",
+      "creative": "Creative",
+      "addPlacement": "Add Placement",
+      "duplicateWarning": "This platform + placement type combination already exists"
+    },
+    "platform": {
+      "xiaohongshu": "Xiaohongshu",
+      "douyin": "Douyin",
+      "kuaishou": "Kuaishou",
+      "bilibili": "Bilibili",
+      "weibo": "Weibo",
+      "wechat_moments": "WeChat Moments",
+      "wechat_channels": "WeChat Channels",
+      "meta": "Meta (Facebook/Instagram)",
+      "google": "Google Ads",
+      "tiktok": "TikTok"
+    },
+    "placementType": {
+      "INFO_FEED": "In-feed Ad",
+      "SEARCH": "Search Ad",
+      "KOL_SEEDING": "KOL / Influencer",
+      "SHORT_VIDEO": "Short Video",
+      "SPLASH_SCREEN": "Splash Screen",
+      "LIVESTREAM": "Livestream",
+      "HASHTAG_CHALLENGE": "Hashtag Challenge",
+      "SHOPPING": "Shopping / Store Promotion"
+    },
+    "objectiveType": {
+      "BRAND_AWARENESS": "Brand Awareness",
+      "SEEDING": "Seeding / Engagement",
+      "TRAFFIC": "Traffic",
+      "CONVERSION": "Conversion",
+      "LEAD_GENERATION": "Lead Generation"
+    },
+    "product": {
+      "title": "Product",
+      "brandName": "Brand Name",
+      "brandNamePlaceholder": "e.g. Nike, PMPM, or your brand name",
+      "name": "Product Name",
+      "namePlaceholder": "e.g. Anti-aging Serum",
+      "price": "Price (¥)",
+      "pricePlaceholder": "299",
+      "category": "Category",
+      "categoryPlaceholder": "e.g. Skincare",
+      "sellingPoints": "Key Selling Points",
+      "sellingPointsPlaceholder": "e.g. Patented technology, 10x faster, used by 1M+ users",
+      "productStage": "Product Stage",
+      "stageNewLaunch": "New Launch",
+      "stageEstablished": "Established (has reviews & sales)",
+      "stageBestseller": "Bestseller / Star Product",
+      "description": "Description (optional)",
+      "descriptionPlaceholder": "Additional product details"
+    },
+    "creative": {
+      "title": "Ad Creative",
+      "description": "Creative Description",
+      "descriptionPlaceholder": "Describe your ad creative: format, key message, visual style...",
+      "format": "Format",
+      "formatVideo": "Video",
+      "formatImage": "Image",
+      "formatImageText": "Image + Text",
+      "formatCarousel": "Carousel"
+    },
+    "campaign": {
+      "title": "Campaign",
+      "budget": "Monthly Budget (¥)",
+      "budgetPlaceholder": "200000"
+    },
+    "audience": {
+      "title": "Target Audience",
+      "gender": "Gender",
+      "genderAll": "All",
+      "genderFemale": "Female",
+      "genderMale": "Male",
+      "ageMin": "Age Min",
+      "ageMax": "Age Max",
+      "region": "Target Region",
+      "regionPlaceholder": "e.g. Tier 1-2 cities, Nationwide, North America",
+      "interests": "Interests",
+      "interestPlaceholder": "Add interest tag",
+      "interestAdd": "Add"
+    },
+    "settings": {
+      "title": "Simulation Settings",
+      "agentCount": "Agent Count",
+      "agentCountHint": "More agents = more accurate but slower & costlier"
+    },
+    "submit": "Start Simulation",
+    "submitting": "Starting Simulation..."
+  },
+  "result": {
+    "budget": "budget",
+    "status": {
+      "PENDING": "Initializing...",
+      "GENERATING": "Generating agents...",
+      "SIMULATING": "Running simulation...",
+      "AGGREGATING": "Aggregating results...",
+      "COMPLETED": "COMPLETED",
+      "FAILED": "FAILED"
+    },
+    "metrics": {
+      "attentionRate": "Attention Rate",
+      "ctr": "CTR",
+      "cvr": "CVR",
+      "overallConversionRate": "Overall Conv. Rate",
+      "estimatedCPA": "Est. CPA"
+    },
+    "funnel": {
+      "title": "Conversion Funnel",
+      "exposure": "Exposure",
+      "attention": "Attention",
+      "click": "Click",
+      "conversion": "Conversion",
+      "agents": "Agents"
+    },
+    "dropOff": {
+      "title": "Drop-off Reasons",
+      "noticedNotClicked": "Noticed but didn't click",
+      "clickedNotConverted": "Clicked but didn't convert"
+    },
+    "agents": {
+      "title": "Agents",
+      "showing": "Showing {{shown}} of {{total}} agents",
+      "attention": "Attention",
+      "click": "Click",
+      "convert": "Convert"
+    },
+    "failed": {
+      "title": "Simulation failed",
+      "retry": "Try Again"
+    },
+    "loading": "Loading...",
+    "notFound": "Simulation not found"
+  },
+  "settings": {
+    "llm": "LLM Settings",
+    "llmDescription": "Configure your LLM provider. Credentials are stored locally in your browser and passed to the server per request. The server does not log or persist any credentials.",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "sk-...",
+    "baseUrl": "Base URL",
+    "baseUrlPlaceholder": "https://api.openai.com/v1",
+    "model": "Model",
+    "modelPlaceholder": "gpt-4o-mini",
+    "save": "Save",
+    "saved": "Saved",
+    "verify": "Verify Connection",
+    "verifying": "Verifying...",
+    "verifySuccess": "Connection successful",
+    "verifyFailed": "Connection failed",
+    "notConfigured": "LLM not configured",
+    "configured": "LLM configured"
+  },
+  "footer": {
+    "version": "Version",
+    "source": "Source"
+  },
+  "interview": {
+    "backToResults": "Back to results",
+    "income": "income",
+    "tier": "Tier",
+    "city": "city",
+    "interests": "Interests",
+    "decision": {
+      "attention": "Attention",
+      "click": "Click",
+      "conversion": "Conversion"
+    },
+    "placeholder": "Ask this agent...",
+    "send": "Send",
+    "thinking": "Thinking...",
+    "emptyHint": "Ask this agent anything about their decision.",
+    "emptyExample": "e.g. \"Why didn't you click?\" or \"What would make you buy?\"",
+    "failed": "Interview failed. Please try again."
+  }
+}

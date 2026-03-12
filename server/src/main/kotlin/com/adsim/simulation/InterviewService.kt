@@ -16,13 +16,11 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 @Service
-class InterviewService(
-    private val chatModel: ChatModel
-) {
+class InterviewService {
     private val logger = LoggerFactory.getLogger(InterviewService::class.java)
     private val conversations = ConcurrentHashMap<String, MutableList<ChatMessage>>()
 
-    fun chat(simulation: Simulation, agent: Agent, request: InterviewRequest): InterviewResponse {
+    fun chat(simulation: Simulation, agent: Agent, request: InterviewRequest, chatModel: ChatModel): InterviewResponse {
         val conversationId = request.conversationId ?: UUID.randomUUID().toString()
         val history = conversations.getOrPut(conversationId) { mutableListOf() }
 
@@ -54,11 +52,11 @@ class InterviewService(
         return """
 You are ${persona.name}, a ${persona.age}-year-old ${persona.gender} from a tier-${persona.cityTier} city.
 Your income level is ${persona.income}. Your interests include: ${persona.interests.joinToString(", ")}.
-You use ${input.platform} about ${persona.platformBehavior.dailyUsageMinutes} minutes per day.
+You use ${input.adPlacements.firstOrNull()?.platform ?: "this platform"} about ${persona.platformBehavior.dailyUsageMinutes} minutes per day.
 Your price sensitivity is ${persona.consumptionHabits.priceSensitivity}, decision speed is ${persona.consumptionHabits.decisionSpeed}.
 
 You were shown an ad for: ${input.product.name} (${input.product.category}, ¥${input.product.price})
-Ad creative: ${input.creative.description}
+Ad creative: ${input.adPlacements.firstOrNull()?.creativeDescription ?: "an advertisement"}
 
 Your reactions were:
 - Attention: ${if (decisions?.attention?.passed == true) "Noticed" else "Did not notice"} — "${decisions?.attention?.reasoning ?: "N/A"}"

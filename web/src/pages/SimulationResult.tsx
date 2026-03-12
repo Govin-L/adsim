@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { api, type Simulation, type Agent } from '../api/client'
 import FunnelChart from '../components/FunnelChart'
 import MetricsCards from '../components/MetricsCards'
 import DropOffReasons from '../components/DropOffReasons'
+import LanguageSwitch from '../components/LanguageSwitch'
 
 export default function SimulationResult() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [simulation, setSimulation] = useState<Simulation | null>(null)
@@ -14,29 +17,22 @@ export default function SimulationResult() {
 
   useEffect(() => {
     if (!id) return
+    api.getSimulation(id).then(setSimulation).catch(() => setError(t('result.notFound')))
 
-    // Initial fetch
-    api.getSimulation(id).then(setSimulation).catch(() => setError('Simulation not found'))
-
-    // SSE for progress
     const es = api.subscribeProgress(id)
     es.onmessage = (event) => {
       const data = JSON.parse(event.data)
       setSimulation(prev => prev ? { ...prev, progress: data } : prev)
-
       if (data.status === 'completed' || data.status === 'failed') {
         es.close()
-        // Re-fetch full simulation with results
         api.getSimulation(id).then(setSimulation)
         api.getAgents(id).then(setAgents)
       }
     }
     es.onerror = () => es.close()
-
     return () => es.close()
-  }, [id])
+  }, [id, t])
 
-  // Fetch agents when simulation completes
   useEffect(() => {
     if (simulation?.status === 'COMPLETED' && id && agents.length === 0) {
       api.getAgents(id).then(setAgents)
@@ -45,131 +41,148 @@ export default function SimulationResult() {
 
   if (error) {
     return (
-      <div className="max-w-4xl mx-auto p-6 text-center">
-        <p className="text-red-500 text-lg">{error}</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-bg)' }}>
+        <p style={{ color: 'var(--color-error)' }}>{error}</p>
       </div>
     )
   }
 
   if (!simulation) {
     return (
-      <div className="max-w-4xl mx-auto p-6 text-center">
-        <p className="text-gray-400">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-bg)' }}>
+        <p style={{ color: 'var(--color-text-tertiary)' }}>{t('result.loading')}</p>
       </div>
     )
   }
 
   const isRunning = ['PENDING', 'GENERATING', 'SIMULATING', 'AGGREGATING'].includes(simulation.status)
+  const pct = simulation.progress.total > 0 ? (simulation.progress.completed / simulation.progress.total) * 100 : 0
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold">{simulation.input.product.name}</h1>
-          <p className="text-gray-500">
-            {simulation.input.platform} &middot; ¥{simulation.input.budget.toLocaleString()} budget
-          </p>
-        </div>
-        <StatusBadge status={simulation.status} />
-      </div>
-
-      {/* Progress */}
-      {isRunning && (
-        <div className="mb-8">
-          <div className="flex justify-between text-sm text-gray-500 mb-2">
-            <span>{statusLabel(simulation.status)}</span>
-            <span>{simulation.progress.completed} / {simulation.progress.total}</span>
-          </div>
-          <div className="w-full bg-gray-100 rounded-full h-3">
-            <div
-              className="bg-black rounded-full h-3 transition-all duration-300"
-              style={{ width: `${simulation.progress.total > 0 ? (simulation.progress.completed / simulation.progress.total) * 100 : 0}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Results */}
-      {simulation.status === 'COMPLETED' && simulation.results && (
-        <>
-          <MetricsCards metrics={simulation.results.metrics} />
-          <FunnelChart funnel={simulation.results.funnel} />
-          <DropOffReasons dropOffReasons={simulation.results.dropOffReasons} />
-
-          {/* Agent List */}
-          <section className="mt-8">
-            <h2 className="text-lg font-semibold mb-4">Agents ({agents.length})</h2>
-            <div className="grid gap-3">
-              {agents.slice(0, 20).map(agent => (
-                <div
-                  key={agent.id}
-                  onClick={() => navigate(`/simulation/${id}/agent/${agent.id}`)}
-                  className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer flex justify-between items-center"
-                >
-                  <div>
-                    <span className="font-medium">{agent.persona.name}</span>
-                    <span className="text-gray-400 text-sm ml-2">
-                      {agent.persona.age}y, {agent.persona.gender}, {agent.persona.income} income
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <FunnelBadge label="Attention" passed={agent.decisions?.attention.passed} />
-                    <FunnelBadge label="Click" passed={agent.decisions?.click.passed} />
-                    <FunnelBadge label="Convert" passed={agent.decisions?.conversion.passed} />
-                  </div>
-                </div>
-              ))}
-              {agents.length > 20 && (
-                <p className="text-sm text-gray-400 text-center">Showing 20 of {agents.length} agents</p>
-              )}
+    <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
+      {/* Header */}
+      <header className="border-b animate-in" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
+        <div className="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate('/')} className="cursor-pointer" style={{ color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-display)', fontSize: '1.25rem' }}>
+              {t('app.name')}
+            </button>
+            <span style={{ color: 'var(--color-border)' }}>/</span>
+            <div>
+              <h1 className="text-lg font-semibold" style={{ letterSpacing: '-0.01em' }}>{simulation.input.product.name}</h1>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
+                {simulation.input.platform} &middot; ¥{simulation.input.budget.toLocaleString()} {t('result.budget')}
+              </p>
             </div>
-          </section>
-        </>
-      )}
-
-      {simulation.status === 'FAILED' && (
-        <div className="text-center py-12">
-          <p className="text-red-500 text-lg">Simulation failed</p>
-          <button onClick={() => navigate('/')} className="mt-4 px-4 py-2 bg-black text-white rounded-lg">
-            Try Again
-          </button>
+          </div>
+          <div className="flex items-center gap-4">
+            <StatusBadge status={simulation.status} t={t} />
+            <LanguageSwitch />
+          </div>
         </div>
-      )}
+      </header>
+
+      <main className="max-w-7xl mx-auto px-8 py-8">
+        {/* Progress */}
+        {isRunning && (
+          <div className="mb-10 animate-in stagger-1">
+            <div className="flex justify-between text-xs mb-2.5" style={{ color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+              <span>{t(`result.status.${simulation.status}`)}</span>
+              <span>{simulation.progress.completed}/{simulation.progress.total}</span>
+            </div>
+            <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--color-border-subtle)' }}>
+              <div className="h-2 rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'var(--color-text)', animation: pct < 100 ? 'pulse-bar 2s ease-in-out infinite' : 'none' }} />
+            </div>
+          </div>
+        )}
+
+        {/* Results */}
+        {simulation.status === 'COMPLETED' && simulation.results && (
+          <>
+            <MetricsCards metrics={simulation.results.metrics} />
+            <FunnelChart funnel={simulation.results.funnel} />
+            <DropOffReasons dropOffReasons={simulation.results.dropOffReasons} />
+
+            {/* Agent List */}
+            <section className="mt-8 animate-in stagger-5">
+              <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--color-text-secondary)', letterSpacing: '0.08em' }}>
+                {t('result.agents.title')} <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)' }}>({agents.length})</span>
+              </h2>
+              <div className="space-y-2">
+                {agents.slice(0, 20).map(agent => (
+                  <div key={agent.id}
+                    onClick={() => navigate(`/simulation/${id}/agent/${agent.id}`)}
+                    className="p-4 rounded-xl flex justify-between items-center cursor-pointer transition-all"
+                    style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--color-text-tertiary)'}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--color-border)'}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium text-sm">{agent.persona.name}</span>
+                      <span className="text-xs" style={{ color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+                        {agent.persona.age} &middot; {agent.persona.gender} &middot; {agent.persona.income}
+                      </span>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <FunnelDot label={t('result.agents.attention')} passed={agent.decisions?.attention.passed} />
+                      <FunnelDot label={t('result.agents.click')} passed={agent.decisions?.click.passed} />
+                      <FunnelDot label={t('result.agents.convert')} passed={agent.decisions?.conversion.passed} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {agents.length > 20 && (
+                <p className="text-xs text-center mt-4" style={{ color: 'var(--color-text-tertiary)' }}>
+                  {t('result.agents.showing', { shown: 20, total: agents.length })}
+                </p>
+              )}
+            </section>
+          </>
+        )}
+
+        {/* Failed */}
+        {simulation.status === 'FAILED' && (
+          <div className="text-center py-20 animate-fade">
+            <p className="text-lg font-medium" style={{ color: 'var(--color-error)' }}>{t('result.failed.title')}</p>
+            <button onClick={() => navigate('/')}
+              className="mt-6 px-6 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-opacity"
+              style={{ background: 'var(--color-text)', color: 'var(--color-bg)' }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            >
+              {t('result.failed.retry')}
+            </button>
+          </div>
+        )}
+      </main>
     </div>
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    PENDING: 'bg-gray-100 text-gray-600',
-    GENERATING: 'bg-blue-50 text-blue-600',
-    SIMULATING: 'bg-yellow-50 text-yellow-700',
-    AGGREGATING: 'bg-purple-50 text-purple-600',
-    COMPLETED: 'bg-green-50 text-green-700',
-    FAILED: 'bg-red-50 text-red-600',
+function StatusBadge({ status, t }: { status: string; t: (key: string) => string }) {
+  const styles: Record<string, { bg: string; color: string }> = {
+    PENDING: { bg: 'var(--color-border-subtle)', color: 'var(--color-text-tertiary)' },
+    GENERATING: { bg: '#eff6ff', color: '#2563eb' },
+    SIMULATING: { bg: 'var(--color-accent-bg)', color: 'var(--color-accent)' },
+    AGGREGATING: { bg: '#faf5ff', color: '#7c3aed' },
+    COMPLETED: { bg: 'var(--color-success-bg)', color: 'var(--color-success)' },
+    FAILED: { bg: 'var(--color-error-bg)', color: 'var(--color-error)' },
   }
+  const s = styles[status] || styles.PENDING
   return (
-    <span className={`px-3 py-1 rounded-full text-sm font-medium ${colors[status] || 'bg-gray-100'}`}>
-      {status}
+    <span className="px-3 py-1 rounded-full text-xs font-semibold" style={{ background: s.bg, color: s.color, fontFamily: 'var(--font-mono)' }}>
+      {t(`result.status.${status}`)}
     </span>
   )
 }
 
-function FunnelBadge({ label, passed }: { label: string; passed?: boolean }) {
-  if (passed === undefined) return <span className="text-xs text-gray-300 px-2 py-1 bg-gray-50 rounded">{label}</span>
+function FunnelDot({ label, passed }: { label: string; passed?: boolean }) {
+  const bg = passed === undefined ? 'var(--color-border)' : passed ? 'var(--color-success)' : 'var(--color-error)'
   return (
-    <span className={`text-xs px-2 py-1 rounded ${passed ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-500'}`}>
-      {label}
-    </span>
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded text-xs" title={label}
+      style={{ background: passed === undefined ? 'var(--color-border-subtle)' : passed ? 'var(--color-success-bg)' : 'var(--color-error-bg)' }}>
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: bg }} />
+      <span style={{ color: bg, fontFamily: 'var(--font-mono)', fontSize: '0.65rem' }}>{label}</span>
+    </div>
   )
-}
-
-function statusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    PENDING: 'Initializing...',
-    GENERATING: 'Generating agents...',
-    SIMULATING: 'Running simulation...',
-    AGGREGATING: 'Aggregating results...',
-  }
-  return labels[status] || status
 }

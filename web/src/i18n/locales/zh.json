@@ -1,0 +1,235 @@
+{
+  "app": {
+    "name": "AdSim",
+    "tagline": "投放之前，先模拟。"
+  },
+  "create": {
+    "title": "新建模拟",
+    "greeting": "描述你的营销方案，或从模板开始。",
+    "templates": {
+      "beauty": {
+        "title": "美妆新品推广",
+        "brandName": "珀莱雅",
+        "productName": "深海胶原精华液",
+        "sellingPoints": "深海胶原蛋白肽、28天临床验证抗老、轻薄不油腻",
+        "description": "主打抗老紧致的新品精华液",
+        "creative1": "10位美妆KOL（5万-20万粉丝）拍摄使用前后对比视频，突出质地和28天可见效果",
+        "creative2": "产品图配成分解析和临床数据，引导至旗舰店",
+        "creative3": "卡关键词：抗老精华、胶原蛋白护肤、细纹修复",
+        "region": "一二线城市"
+      },
+      "ecommerce": {
+        "title": "电商大促活动",
+        "brandName": "鲜萃",
+        "productName": "冷萃咖啡胶囊（30颗装）",
+        "sellingPoints": "3秒冷萃、阿拉比卡单一产地、零糖零添加、办公室便携胶囊",
+        "description": "月销1万+，618大促7折优惠",
+        "creative1": "15秒办公室场景：打工人开胶囊、加水、秒变冰咖啡，叠加618价格标签",
+        "creative2": "盲测对比咖啡店vs胶囊咖啡，真实反应视频",
+        "creative3": "生活博主分享每日办公室咖啡日常，真实种草风格",
+        "region": "全国"
+      },
+      "app": {
+        "title": "APP 下载获客",
+        "brandName": "FitTrack",
+        "productName": "FitTrack - AI 健身规划师",
+        "sellingPoints": "AI 生成个性化训练计划、摄像头实时纠正动作、基础版免费",
+        "description": "面向健身新手的智能健身 App",
+        "creative1": "分屏对比：左边盲目锻炼 vs 右边跟着AI指导，CTA：免费下载",
+        "creative2": "健身KOL记录7天挑战，展示AI动作纠正和进步追踪",
+        "creative3": "多图轮播：App截图展示AI计划生成、训练仪表盘、用户前后对比",
+        "region": "一二线城市"
+      }
+    },
+    "chatPlaceholder": "描述你的方案，或输入修改指令...",
+    "inputPlaceholder": "用自然语言描述你的营销方案...\n\n示例：我们是珀莱雅，准备推广新出的抗老精华液，定价299元，主打成分天然和临床验证功效。计划在小红书投放50万/月，其中20万做达人种草（找10个美妆KOL拍视频），20万做信息流广告，10万做搜索广告卡关键词。目标受众是25-35岁女性。",
+    "parseButton": "解析方案",
+    "parsing": "正在分析你的方案...",
+    "confirmTitle": "确认方案",
+    "confirmDescription": "AI 已从你的描述中提取以下信息，请确认或修改后开始模拟。",
+    "missingFields": "以下信息无法从描述中确定，可能需要补充：",
+    "startSimulation": "开始模拟",
+    "editPlan": "修改方案",
+    "backToInput": "返回输入",
+    "advancedMode": "高级模式（手动填写）",
+    "placement": {
+      "title": "投放计划",
+      "platform": "平台",
+      "type": "投放形式",
+      "objective": "投放目标",
+      "format": "素材格式",
+      "budget": "预算",
+      "creative": "素材描述",
+      "addPlacement": "添加投放计划",
+      "duplicateWarning": "该平台+投放形式的组合已存在"
+    },
+    "platform": {
+      "xiaohongshu": "小红书",
+      "douyin": "抖音",
+      "kuaishou": "快手",
+      "bilibili": "B站",
+      "weibo": "微博",
+      "wechat_moments": "朋友圈广告",
+      "wechat_channels": "视频号",
+      "meta": "Meta (Facebook/Instagram)",
+      "google": "Google Ads",
+      "tiktok": "TikTok"
+    },
+    "placementType": {
+      "INFO_FEED": "信息流广告",
+      "SEARCH": "搜索广告",
+      "KOL_SEEDING": "达人/KOL 种草",
+      "SHORT_VIDEO": "短视频广告",
+      "SPLASH_SCREEN": "开屏广告",
+      "LIVESTREAM": "直播引流",
+      "HASHTAG_CHALLENGE": "话题挑战",
+      "SHOPPING": "商城/购物推广"
+    },
+    "objectiveType": {
+      "BRAND_AWARENESS": "品牌曝光",
+      "SEEDING": "种草互动",
+      "TRAFFIC": "流量引导",
+      "CONVERSION": "直接转化",
+      "LEAD_GENERATION": "线索收集"
+    },
+    "product": {
+      "title": "产品信息",
+      "brandName": "品牌名称",
+      "brandNamePlaceholder": "如：珀莱雅、PMPM、或你的品牌名",
+      "name": "产品名称",
+      "namePlaceholder": "如：抗老精华液",
+      "price": "价格（¥）",
+      "pricePlaceholder": "299",
+      "category": "品类",
+      "categoryPlaceholder": "如：护肤品",
+      "sellingPoints": "核心卖点",
+      "sellingPointsPlaceholder": "如：成分天然、临床验证抗老功效、明星同款",
+      "productStage": "产品阶段",
+      "stageNewLaunch": "新品上市",
+      "stageEstablished": "已有销量和口碑",
+      "stageBestseller": "爆款明星产品",
+      "description": "描述（可选）",
+      "descriptionPlaceholder": "补充产品信息"
+    },
+    "creative": {
+      "title": "广告素材",
+      "description": "素材描述",
+      "descriptionPlaceholder": "描述广告素材：形式、核心卖点、视觉风格...",
+      "format": "形式",
+      "formatVideo": "视频",
+      "formatImage": "图片",
+      "formatImageText": "图文",
+      "formatCarousel": "轮播"
+    },
+    "campaign": {
+      "title": "投放计划",
+      "budget": "月预算（¥）",
+      "budgetPlaceholder": "200000"
+    },
+    "audience": {
+      "title": "目标受众",
+      "gender": "性别",
+      "genderAll": "不限",
+      "genderFemale": "女",
+      "genderMale": "男",
+      "ageMin": "最小年龄",
+      "ageMax": "最大年龄",
+      "region": "目标地域",
+      "regionPlaceholder": "如：一二线城市、全国、北美",
+      "interests": "兴趣标签",
+      "interestPlaceholder": "添加兴趣标签",
+      "interestAdd": "添加"
+    },
+    "settings": {
+      "title": "模拟设置",
+      "agentCount": "Agent 数量",
+      "agentCountHint": "数量越多越准确，但速度更慢、成本更高"
+    },
+    "submit": "开始模拟",
+    "submitting": "正在启动模拟..."
+  },
+  "result": {
+    "budget": "预算",
+    "status": {
+      "PENDING": "初始化中...",
+      "GENERATING": "正在生成 Agent...",
+      "SIMULATING": "模拟运行中...",
+      "AGGREGATING": "聚合结果中...",
+      "COMPLETED": "已完成",
+      "FAILED": "失败"
+    },
+    "metrics": {
+      "attentionRate": "注意率",
+      "ctr": "点击率",
+      "cvr": "转化率",
+      "overallConversionRate": "总转化率",
+      "estimatedCPA": "预估 CPA"
+    },
+    "funnel": {
+      "title": "转化漏斗",
+      "exposure": "曝光",
+      "attention": "注意",
+      "click": "点击",
+      "conversion": "转化",
+      "agents": "人数"
+    },
+    "dropOff": {
+      "title": "流失原因",
+      "noticedNotClicked": "看到但未点击",
+      "clickedNotConverted": "点击但未转化"
+    },
+    "agents": {
+      "title": "Agent 列表",
+      "showing": "显示 {{shown}}/{{total}} 个 Agent",
+      "attention": "注意",
+      "click": "点击",
+      "convert": "转化"
+    },
+    "failed": {
+      "title": "模拟失败",
+      "retry": "重新尝试"
+    },
+    "loading": "加载中...",
+    "notFound": "模拟不存在"
+  },
+  "settings": {
+    "llm": "模型设置",
+    "llmDescription": "配置 LLM 服务商。凭证保存在浏览器本地，按请求传递给服务端调用。服务端不会记录或存储任何凭证信息。",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "sk-...",
+    "baseUrl": "Base URL",
+    "baseUrlPlaceholder": "https://api.openai.com/v1",
+    "model": "模型",
+    "modelPlaceholder": "gpt-4o-mini",
+    "save": "保存",
+    "saved": "已保存",
+    "verify": "验证连接",
+    "verifying": "验证中...",
+    "verifySuccess": "连接成功",
+    "verifyFailed": "连接失败",
+    "notConfigured": "未配置模型",
+    "configured": "模型已配置"
+  },
+  "footer": {
+    "version": "版本",
+    "source": "源码"
+  },
+  "interview": {
+    "backToResults": "返回结果",
+    "income": "收入",
+    "tier": "线",
+    "city": "城市",
+    "interests": "兴趣",
+    "decision": {
+      "attention": "注意",
+      "click": "点击",
+      "conversion": "转化"
+    },
+    "placeholder": "向这个 Agent 提问...",
+    "send": "发送",
+    "thinking": "思考中...",
+    "emptyHint": "向这个 Agent 询问关于 TA 决策的任何问题。",
+    "emptyExample": "例如：「为什么没有点击？」或「什么情况下你会购买？」",
+    "failed": "采访失败，请重试。"
+  }
+}

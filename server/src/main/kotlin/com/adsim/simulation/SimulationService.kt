@@ -26,15 +26,15 @@ class SimulationService(
     private val logger = LoggerFactory.getLogger(SimulationService::class.java)
     private val sseEmitters = ConcurrentHashMap<String, MutableList<SseEmitter>>()
 
-    fun create(request: CreateSimulationRequest): Simulation {
+    fun create(request: CreateSimulationRequest, chatModel: dev.langchain4j.model.chat.ChatModel): Simulation {
         val simulation = simulationRepository.save(
-            Simulation(input = request.toInput())
+            Simulation(input = request.input, rawInput = request.rawInput)
         )
         val simulationId = simulation.id!!
         logger.info("Simulation created, id: {}", simulationId)
 
         CoroutineScope(Dispatchers.IO).launch {
-            runSimulation(simulationId, request.agentCount)
+            runSimulation(simulationId, request.agentCount, chatModel)
         }
 
         return simulation
@@ -53,10 +53,10 @@ class SimulationService(
         return agent?.takeIf { it.simulationId == simulationId }
     }
 
-    fun interview(simulationId: String, agentId: String, request: InterviewRequest): InterviewResponse? {
+    fun interview(simulationId: String, agentId: String, request: InterviewRequest, chatModel: dev.langchain4j.model.chat.ChatModel): InterviewResponse? {
         val simulation = get(simulationId) ?: return null
         val agent = getAgent(simulationId, agentId) ?: return null
-        return interviewService.chat(simulation, agent, request)
+        return interviewService.chat(simulation, agent, request, chatModel)
     }
 
     fun subscribeProgress(simulationId: String): SseEmitter {
@@ -67,13 +67,13 @@ class SimulationService(
         return emitter
     }
 
-    private suspend fun runSimulation(simulationId: String, agentCount: Int) {
+    private suspend fun runSimulation(simulationId: String, agentCount: Int, chatModel: dev.langchain4j.model.chat.ChatModel) {
         try {
             val simulation = get(simulationId) ?: return
 
             // Phase 1: Generate agents
             updateStatus(simulationId, SimulationStatus.GENERATING)
-            val agents = agentGenerator.generate(simulation.input, agentCount)
+            val agents = agentGenerator.generate(simulation.input, agentCount, chatModel)
             val savedAgents = agentRepository.saveAll(
                 agents.map { it.copy(simulationId = simulationId) }
             )
@@ -81,14 +81,14 @@ class SimulationService(
 
             // Phase 2: Run simulation
             updateStatus(simulationId, SimulationStatus.SIMULATING)
-            simulationEngine.run(simulation.input, savedAgents) { completed ->
+            simulationEngine.run(simulation.input, savedAgents, chatModel) { completed ->
                 updateProgress(simulationId, agentCount, completed)
             }
 
             // Phase 3: Aggregate results
             updateStatus(simulationId, SimulationStatus.AGGREGATING)
             val completedAgents = agentRepository.findBySimulationId(simulationId)
-            val results = resultAggregator.aggregate(completedAgents, simulation.input.budget)
+            val results = resultAggregator.aggregate(completedAgents, simulation.input.totalBudget)
 
             // Complete
             simulationRepository.save(

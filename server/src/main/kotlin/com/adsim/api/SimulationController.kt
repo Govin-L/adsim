@@ -1,11 +1,12 @@
 package com.adsim.api
 
-import com.adsim.api.dto.CreateSimulationRequest
-import com.adsim.api.dto.InterviewRequest
-import com.adsim.api.dto.InterviewResponse
+import com.adsim.agent.PlanParser
+import com.adsim.api.dto.*
+import com.adsim.config.LlmRequestConfig
 import com.adsim.model.Agent
 import com.adsim.model.Simulation
 import com.adsim.simulation.SimulationService
+import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -15,12 +16,34 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 @RestController
 @RequestMapping("/api/simulations")
 class SimulationController(
-    private val simulationService: SimulationService
+    private val simulationService: SimulationService,
+    private val planParser: PlanParser,
+    private val llmRequestConfig: LlmRequestConfig
 ) {
 
+    @PostMapping("/verify-llm")
+    fun verifyLlm(httpRequest: HttpServletRequest): Map<String, Any> {
+        return try {
+            val model = llmRequestConfig.resolve(httpRequest)
+            val reply = model.chat("Reply with exactly: ok")
+            mapOf("success" to true, "reply" to reply)
+        } catch (e: Exception) {
+            mapOf("success" to false, "error" to (e.message ?: "Unknown error"))
+        }
+    }
+
+    @PostMapping("/parse")
+    fun parsePlan(@Valid @RequestBody request: ParsePlanRequest, httpRequest: HttpServletRequest): ParsePlanResponse {
+        val model = llmRequestConfig.resolve(httpRequest)
+        val input = planParser.parse(request.content, model)
+        val missing = planParser.findMissingFields(input)
+        return ParsePlanResponse(input, missing)
+    }
+
     @PostMapping
-    fun create(@Valid @RequestBody request: CreateSimulationRequest): Simulation {
-        return simulationService.create(request)
+    fun create(@RequestBody request: CreateSimulationRequest, httpRequest: HttpServletRequest): Simulation {
+        val model = llmRequestConfig.resolve(httpRequest)
+        return simulationService.create(request, model)
     }
 
     @GetMapping("/{id}")
@@ -46,9 +69,11 @@ class SimulationController(
     fun interview(
         @PathVariable id: String,
         @PathVariable agentId: String,
-        @Valid @RequestBody request: InterviewRequest
+        @Valid @RequestBody request: InterviewRequest,
+        httpRequest: HttpServletRequest
     ): ResponseEntity<InterviewResponse> {
-        return simulationService.interview(id, agentId, request)
+        val model = llmRequestConfig.resolve(httpRequest)
+        return simulationService.interview(id, agentId, request, model)
             ?.let { ResponseEntity.ok(it) }
             ?: ResponseEntity.notFound().build()
     }
