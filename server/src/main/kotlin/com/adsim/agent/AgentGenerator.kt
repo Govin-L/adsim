@@ -4,9 +4,8 @@ import com.adsim.config.SimulationConfig
 import com.adsim.model.*
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import dev.langchain4j.model.chat.ChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.request.ChatRequest
-import dev.langchain4j.model.chat.request.json.JsonObjectSchema
 import dev.langchain4j.data.message.SystemMessage
 import dev.langchain4j.data.message.UserMessage
 import org.slf4j.LoggerFactory
@@ -14,7 +13,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class AgentGenerator(
-    private val chatModel: ChatLanguageModel,
+    private val chatModel: ChatModel,
     private val config: SimulationConfig
 ) {
     private val logger = LoggerFactory.getLogger(AgentGenerator::class.java)

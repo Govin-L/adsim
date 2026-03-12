@@ -8,7 +8,7 @@ import dev.langchain4j.data.message.AiMessage
 import dev.langchain4j.data.message.ChatMessage
 import dev.langchain4j.data.message.SystemMessage
 import dev.langchain4j.data.message.UserMessage
-import dev.langchain4j.model.chat.ChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.request.ChatRequest
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 @Service
 class InterviewService(
-    private val chatModel: ChatLanguageModel
+    private val chatModel: ChatModel
 ) {
     private val logger = LoggerFactory.getLogger(InterviewService::class.java)
     private val conversations = ConcurrentHashMap<String, MutableList<ChatMessage>>()

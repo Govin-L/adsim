@@ -4,7 +4,7 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - mongo_data:/data/db
+      - adsim_mongo_data:/data/db
 
   redis:
     image: redis:7-alpine
@@ -15,13 +15,14 @@ services:
     build:
       context: ./server
     ports:
-      - "8080:8080"
+      - "8180:8180"
     environment:
       - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/adsim
       - SPRING_DATA_REDIS_HOST=redis
+      - SERVER_PORT=8180
       - LLM_API_KEY=${LLM_API_KEY}
       - LLM_BASE_URL=${LLM_BASE_URL:-https://api.openai.com/v1}
-      - LLM_MODEL=${LLM_MODEL:-gpt-4o}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
     depends_on:
       - mongodb
       - redis
@@ -35,4 +36,4 @@ services:
       - server
 
 volumes:
-  mongo_data:
+  adsim_mongo_data:

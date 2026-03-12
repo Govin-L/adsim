@@ -1,6 +1,6 @@
 package com.adsim.config
 
-import dev.langchain4j.model.chat.ChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.openai.OpenAiChatModel
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
@@ -11,11 +11,11 @@ import java.time.Duration
 class LlmConfig {
 
     @Bean
-    fun chatLanguageModel(
+    fun chatModel(
         @Value("\${adsim.llm.api-key}") apiKey: String,
         @Value("\${adsim.llm.base-url}") baseUrl: String,
         @Value("\${adsim.llm.model}") model: String
-    ): ChatLanguageModel {
+    ): ChatModel {
         return OpenAiChatModel.builder()
             .apiKey(apiKey)
             .baseUrl(baseUrl)
