@@ -25,7 +25,7 @@ class SimulationController(
     fun verifyLlm(httpRequest: HttpServletRequest): Map<String, Any> {
         return try {
             val model = llmRequestConfig.resolve(httpRequest)
-            val reply = model.chat("Reply with exactly: ok")
+            val reply = model.chat("Reply with a json object: {\"status\": \"ok\"}")
             mapOf("success" to true, "reply" to reply)
         } catch (e: Exception) {
             mapOf("success" to false, "error" to (e.message ?: "Unknown error"))

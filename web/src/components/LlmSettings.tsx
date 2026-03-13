@@ -64,11 +64,12 @@ export default function LlmSettings() {
             {t('settings.llmDescription')}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
+        <div className="space-y-4 pt-2" data-1p-ignore>
           <div>
             <Label className="text-xs">{t('settings.apiKey')}</Label>
             <Input type="password" value={config.apiKey} placeholder={t('settings.apiKeyPlaceholder')}
               onChange={e => { setConfig(c => ({ ...c, apiKey: e.target.value })); setVerifyResult(null) }}
+              autoComplete="off" data-1p-ignore data-lpignore="true"
               className="mt-1.5 font-mono text-sm" />
           </div>
           <div>
