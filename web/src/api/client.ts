@@ -24,6 +24,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 /* ---- Types ---- */
 
+export interface CompetitorInfo {
+  brandName: string
+  price: number
+  positioning: string
+}
+
 export interface Product {
   brandName: string
   name: string
@@ -55,6 +61,9 @@ export interface SimulationInput {
   adPlacements: AdPlacement[]
   totalBudget: number
   targetAudience: TargetAudience
+  competitors?: CompetitorInfo[]
+  brandAwareness?: 'NEW' | 'EMERGING' | 'WELL_KNOWN' | 'TOP'
+  campaignGoal?: 'ACQUISITION' | 'RETENTION' | 'MIXED'
 }
 
 export interface ParsePlanResponse {

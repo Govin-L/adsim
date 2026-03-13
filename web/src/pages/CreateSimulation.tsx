@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Sparkles, Plus, X, Send, Loader2, ArrowRight, Package, Target, Megaphone, Clock, CheckCircle2, XCircle, Activity } from 'lucide-react'
-import { api, type SimulationInput, type AdPlacement, type Simulation } from '@/api/client'
+import { Sparkles, Plus, X, Send, Loader2, ArrowRight, Package, Target, Megaphone, Clock, CheckCircle2, XCircle, Activity, Building2 } from 'lucide-react'
+import { api, type SimulationInput, type AdPlacement, type CompetitorInfo, type Simulation } from '@/api/client'
 import { templates } from '@/data/templates'
 import LanguageSwitch from '@/components/LanguageSwitch'
 import LlmSettings from '@/components/LlmSettings'
@@ -120,6 +120,23 @@ export default function CreateSimulation() {
     for (const pl of platforms) { for (const tp of types) { if (!isDuplicate(pl, tp)) { platform = pl; placementType = tp; break } } if (!isDuplicate(platform, placementType)) break }
     const np: AdPlacement = { platform, placementType, objectives: ['CONVERSION'], format: 'VIDEO', budget: 100000, creativeDescription: '' }
     setPlan({ ...plan, adPlacements: [...plan.adPlacements, np], totalBudget: plan.totalBudget + 100000 })
+  }
+
+  const updateCompetitor = (i: number, field: keyof CompetitorInfo, value: string | number) => {
+    if (!plan) return
+    const competitors = [...(plan.competitors || [])]
+    competitors[i] = { ...competitors[i], [field]: value }
+    setPlan({ ...plan, competitors })
+  }
+  const removeCompetitor = (i: number) => {
+    if (!plan) return
+    setPlan({ ...plan, competitors: (plan.competitors || []).filter((_, idx) => idx !== i) })
+  }
+  const addCompetitor = () => {
+    if (!plan) return
+    const competitors = plan.competitors || []
+    if (competitors.length >= 5) return
+    setPlan({ ...plan, competitors: [...competitors, { brandName: '', price: 0, positioning: '' }] })
   }
 
   return (
@@ -330,6 +347,85 @@ export default function CreateSimulation() {
                       <Input value={plan.targetAudience.region || ''} placeholder={t('create.audience.regionPlaceholder')}
                         onChange={e => updateAudience('region', e.target.value)} />
                     </FieldGroup>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Market Context */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium tracking-wide uppercase text-muted-foreground flex items-center gap-2">
+                    <Building2 size={14} />
+                    {t('create.market.title')}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Brand Awareness */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">{t('create.market.brandAwareness')}</Label>
+                    <div className="flex gap-2">
+                      {(['NEW', 'EMERGING', 'WELL_KNOWN', 'TOP'] as const).map(level => (
+                        <Button key={level} type="button" size="sm"
+                          variant={plan.brandAwareness === level ? 'default' : 'outline'}
+                          className={cn('text-xs h-8', plan.brandAwareness === level && 'bg-teal hover:bg-teal/90')}
+                          onClick={() => setPlan({ ...plan, brandAwareness: level })}>
+                          {t(`create.market.awareness${level === 'NEW' ? 'New' : level === 'EMERGING' ? 'Emerging' : level === 'WELL_KNOWN' ? 'WellKnown' : 'Top'}`)}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Campaign Goal */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">{t('create.market.campaignGoal')}</Label>
+                    <div className="flex gap-2">
+                      {(['ACQUISITION', 'RETENTION', 'MIXED'] as const).map(goal => (
+                        <Button key={goal} type="button" size="sm"
+                          variant={plan.campaignGoal === goal ? 'default' : 'outline'}
+                          className={cn('text-xs h-8', plan.campaignGoal === goal && 'bg-teal hover:bg-teal/90')}
+                          onClick={() => setPlan({ ...plan, campaignGoal: goal })}>
+                          {t(`create.market.goal${goal === 'ACQUISITION' ? 'Acquisition' : goal === 'RETENTION' ? 'Retention' : 'Mixed'}`)}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Competitors */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">{t('create.market.competitors')}</Label>
+                    <p className="text-xs text-muted-foreground/70 mb-3">{t('create.market.competitorHint')}</p>
+                    <div className="space-y-2">
+                      {(plan.competitors || []).map((c, i) => (
+                        <div key={i} className="relative flex items-center gap-3 p-3 rounded-xl border bg-muted/30">
+                          <div className="flex-1 grid grid-cols-3 gap-3">
+                            <FieldGroup label={t('create.market.competitorBrand')}>
+                              <Input value={c.brandName} placeholder={t('create.market.competitorBrandPlaceholder')}
+                                onChange={e => updateCompetitor(i, 'brandName', e.target.value)} />
+                            </FieldGroup>
+                            <FieldGroup label={`${t('create.market.competitorPrice')} (¥)`}>
+                              <Input type="number" value={c.price || ''} className="font-mono"
+                                onChange={e => updateCompetitor(i, 'price', Number(e.target.value))} />
+                            </FieldGroup>
+                            <FieldGroup label={t('create.market.competitorPositioning')}>
+                              <Input value={c.positioning} placeholder={t('create.market.competitorPositioningPlaceholder')}
+                                onChange={e => updateCompetitor(i, 'positioning', e.target.value)} />
+                            </FieldGroup>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => removeCompetitor(i)}>
+                            <X size={14} />
+                          </Button>
+                        </div>
+                      ))}
+                      {(plan.competitors || []).length < 5 && (
+                        <Button variant="outline" className="w-full border-dashed text-muted-foreground hover:text-foreground hover:border-teal/50" onClick={addCompetitor}>
+                          <Plus size={14} className="mr-1.5" />
+                          {t('create.market.addCompetitor')}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

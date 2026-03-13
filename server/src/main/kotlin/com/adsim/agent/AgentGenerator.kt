@@ -84,12 +84,48 @@ Each persona must be unique with distinct demographics, interests, and behaviors
 Include users who would AND would NOT be interested in the advertised product.
 Be realistic: most platform users are NOT the target audience for any specific ad.
 
+Each persona must include a consumerContext describing their current relationship with the product category and brand.
+
 Output valid JSON only.
         """.trimIndent()
     }
 
+    private fun buildBrandAwarenessDistribution(awareness: BrandAwareness): String {
+        return when (awareness) {
+            BrandAwareness.NEW -> "70% never_heard, 20% heard_not_tried, 8% tried_once, 2% regular_user"
+            BrandAwareness.EMERGING -> "40% never_heard, 35% heard_not_tried, 18% tried_once, 7% regular_user"
+            BrandAwareness.WELL_KNOWN -> "15% never_heard, 35% heard_not_tried, 30% tried_once, 20% regular_user"
+            BrandAwareness.TOP -> "5% never_heard, 20% heard_not_tried, 30% tried_once, 45% regular_user"
+        }
+    }
+
     private fun buildUserPrompt(input: SimulationInput, platform: String, batchSize: Int, batchIndex: Int, totalBatches: Int): String {
         val ageRange = input.targetAudience.ageRange
+        val competitorSection = if (input.competitors.isNotEmpty()) {
+            val competitorList = input.competitors.joinToString("\n") { "  - ${it.brandName} (¥${it.price}${if (it.positioning.isNotBlank()) ", ${it.positioning}" else ""})" }
+            """
+Competitors in market:
+$competitorList
+Assign each agent a currentBrand from the competitor list or null (not using any similar product).
+If competitors are provided, distribute: each competitor ~15-25% of agents, remainder have no current brand.
+            """.trimIndent()
+        } else {
+            """
+No specific competitors provided.
+About 50% of agents should have currentBrand=null (not using similar products), 50% should use "some similar product" (generate a realistic brand name).
+            """.trimIndent()
+        }
+
+        val awarenessDistribution = buildBrandAwarenessDistribution(input.brandAwareness)
+
+        val genderDiversity = if (input.targetAudience.gender == "female") {
+            "Even though the target audience is female, include at least 20% male agents for realistic simulation."
+        } else if (input.targetAudience.gender == "male") {
+            "Even though the target audience is male, include at least 20% female agents for realistic simulation."
+        } else {
+            ""
+        }
+
         return """
 Generate $batchSize unique $platform user personas.
 
@@ -97,13 +133,26 @@ This is batch $batchIndex of $totalBatches. Ensure diversity across batches:
 - Batch focus: vary age groups, income levels, city tiers, and interests
 - Include both target audience members AND non-target users
 - About 40-60% should roughly match the target audience, the rest should not
+- Each age group (18-24, 25-30, 31-40, 40+) must have at least 15% representation
+${if (genderDiversity.isNotBlank()) "- $genderDiversity" else ""}
 
 Platform: $platform
 Brand: ${input.product.brandName}
 Product: ${input.product.name} (${input.product.category}, ¥${input.product.price})
 Product stage: ${input.product.productStage}
 Key selling points: ${input.product.sellingPoints}
+Brand awareness level: ${input.brandAwareness} — distribute brandAwareness in consumerContext as: $awarenessDistribution
+Campaign goal: ${input.campaignGoal}
 Target audience: ${input.targetAudience.gender}, age ${ageRange[0]}-${ageRange[1]}${if (input.targetAudience.region.isNotBlank()) ", region: ${input.targetAudience.region}" else ""}${if (input.targetAudience.interests.isNotEmpty()) ", interests: ${input.targetAudience.interests.joinToString(", ")}" else ""}
+
+$competitorSection
+
+For each agent, also generate a consumerContext:
+- currentBrand: the brand they currently use in this product category (or null)
+- currentProductPrice: price of their current product (or null)
+- satisfaction: "satisfied", "neutral", or "looking_for_alternatives"
+- brandAwareness: their awareness of "${input.product.brandName}" — use distribution above
+- recentAdExposure: 0-5, how many similar product ads they saw this week (random)
 
 Output JSON format:
 {
@@ -124,6 +173,13 @@ Output JSON format:
         "priceSensitivity": "MEDIUM",
         "decisionSpeed": "MODERATE",
         "brandLoyalty": "LOW"
+      },
+      "consumerContext": {
+        "currentBrand": "MAC",
+        "currentProductPrice": 170,
+        "satisfaction": "satisfied",
+        "brandAwareness": "heard_not_tried",
+        "recentAdExposure": 2
       }
     }
   ]
@@ -134,6 +190,8 @@ Valid enum values:
 - purchaseFrequency: NEVER, RARELY, SOMETIMES, OFTEN
 - priceSensitivity/brandLoyalty: LOW, MEDIUM, HIGH
 - decisionSpeed: IMPULSIVE, MODERATE, DELIBERATE
+- consumerContext.satisfaction: satisfied, neutral, looking_for_alternatives
+- consumerContext.brandAwareness: never_heard, heard_not_tried, tried_once, regular_user
         """.trimIndent()
     }
 
@@ -159,7 +217,16 @@ Valid enum values:
                             priceSensitivity = SensitivityLevel.valueOf(dto.consumptionHabits.priceSensitivity),
                             decisionSpeed = DecisionSpeed.valueOf(dto.consumptionHabits.decisionSpeed),
                             brandLoyalty = SensitivityLevel.valueOf(dto.consumptionHabits.brandLoyalty)
-                        )
+                        ),
+                        consumerContext = dto.consumerContext?.let {
+                            ConsumerContext(
+                                currentBrand = it.currentBrand,
+                                currentProductPrice = it.currentProductPrice,
+                                satisfaction = it.satisfaction,
+                                brandAwareness = it.brandAwareness ?: "never_heard",
+                                recentAdExposure = it.recentAdExposure ?: 0
+                            )
+                        } ?: ConsumerContext()
                     )
                 )
             }
@@ -179,7 +246,8 @@ Valid enum values:
         val cityTier: Int,
         val interests: List<String>,
         val platformBehavior: PlatformBehaviorDto,
-        val consumptionHabits: ConsumptionHabitsDto
+        val consumptionHabits: ConsumptionHabitsDto,
+        val consumerContext: ConsumerContextDto? = null
     )
     private data class PlatformBehaviorDto(
         val dailyUsageMinutes: Int,
@@ -190,5 +258,12 @@ Valid enum values:
         val priceSensitivity: String,
         val decisionSpeed: String,
         val brandLoyalty: String
+    )
+    private data class ConsumerContextDto(
+        val currentBrand: String? = null,
+        val currentProductPrice: Double? = null,
+        val satisfaction: String? = null,
+        val brandAwareness: String? = null,
+        val recentAdExposure: Int? = null
     )
 }

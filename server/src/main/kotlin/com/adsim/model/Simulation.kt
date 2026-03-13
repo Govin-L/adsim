@@ -27,11 +27,23 @@ data class Progress(
     val completed: Int = 0
 )
 
+data class CompetitorInfo(
+    val brandName: String,
+    val price: Double,
+    val positioning: String = ""
+)
+
+enum class BrandAwareness { NEW, EMERGING, WELL_KNOWN, TOP }
+enum class CampaignGoal { ACQUISITION, RETENTION, MIXED }
+
 data class SimulationInput(
     val product: Product,
     val adPlacements: List<AdPlacement>,
     val totalBudget: Long,
-    val targetAudience: TargetAudience
+    val targetAudience: TargetAudience,
+    val competitors: List<CompetitorInfo> = emptyList(),
+    val brandAwareness: BrandAwareness = BrandAwareness.EMERGING,
+    val campaignGoal: CampaignGoal = CampaignGoal.ACQUISITION
 )
 
 data class Product(

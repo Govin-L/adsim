@@ -17,7 +17,13 @@
         "creative1": "腰部美妆KOL（1万-10万粉丝）试色视频+日常妆容教程，突出持久度和显色度，自然种草风格",
         "creative2": "唇釉色号合集对比图+使用场景，限时折扣信息，引导天猫旗舰店",
         "creative3": "卡关键词：平价唇釉推荐、不脱色唇釉、学生党彩妆",
-        "region": "全国"
+        "region": "全国",
+        "competitor1Brand": "MAC",
+        "competitor1Pos": "国际高端彩妆",
+        "competitor2Brand": "橘朵",
+        "competitor2Pos": "平价国货彩妆",
+        "competitor3Brand": "YSL",
+        "competitor3Pos": "奢侈品彩妆"
       },
       "ecommerce": {
         "title": "珀莱雅 · 泡泡面膜",
@@ -29,7 +35,11 @@
         "creative1": "15秒面膜起泡过程拍摄+使用前后毛孔对比，配合#摇摇泡泡舞#话题挑战",
         "creative2": "达人测评视频：泡泡面膜vs普通面膜盲测对比，突出清洁效果和趣味性",
         "creative3": "素人用户晒出泡泡面膜使用过程，真实种草笔记风格",
-        "region": "全国"
+        "region": "全国",
+        "competitor1Brand": "珀莱雅双抗面膜",
+        "competitor1Pos": "同品牌其他面膜",
+        "competitor2Brand": "薇诺娜舒敏面膜",
+        "competitor2Pos": "敏感肌专用"
       },
       "app": {
         "title": "APP 下载获客",
@@ -144,6 +154,26 @@
       "interests": "兴趣标签",
       "interestPlaceholder": "添加兴趣标签",
       "interestAdd": "添加"
+    },
+    "market": {
+      "title": "市场环境",
+      "brandAwareness": "品牌知名度",
+      "awarenessNew": "新品牌",
+      "awarenessEmerging": "有一定知名度",
+      "awarenessWellKnown": "知名品牌",
+      "awarenessTop": "头部品牌",
+      "campaignGoal": "投放目标类型",
+      "goalAcquisition": "拉新为主",
+      "goalRetention": "复购为主",
+      "goalMixed": "拉新+复购",
+      "competitors": "竞品信息",
+      "competitorBrand": "品牌",
+      "competitorBrandPlaceholder": "如：MAC",
+      "competitorPrice": "价格",
+      "competitorPositioning": "定位",
+      "competitorPositioningPlaceholder": "如：国际高端彩妆",
+      "addCompetitor": "添加竞品",
+      "competitorHint": "添加 1-3 个主要竞品，帮助模拟更真实的市场环境"
     },
     "settings": {
       "title": "模拟设置",

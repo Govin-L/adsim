@@ -144,6 +144,10 @@ class SimulationEngine(
 You are simulating a real $platform user seeing an advertisement in their feed.
 Stay completely in character based on the persona.
 
+You are browsing $platform, having already scrolled through 30+ pieces of content (food posts, fashion tips, travel photos, etc).
+You are aware that some content is sponsored/promoted — you have a natural tendency to scroll past ads quickly.
+Your attention is scarce — only highly relevant or eye-catching content makes you stop.
+
 For each stage of the advertising funnel, make a YES or NO decision:
 1. attention: Would you notice this ad while scrolling?
 2. click: If you noticed it, would you tap to learn more?
@@ -164,10 +168,53 @@ Output valid JSON only. Reasoning in Chinese (中文).
         """.trimIndent()
     }
 
+    private fun buildConsumerContextSection(persona: Persona, input: SimulationInput): String {
+        val ctx = persona.consumerContext
+        val category = input.product.category
+        val brand = input.product.brandName
+
+        val currentUsage = if (ctx.currentBrand != null) {
+            "你目前在用 ${ctx.currentBrand}" +
+                (if (ctx.currentProductPrice != null) "（¥${ctx.currentProductPrice}）" else "") +
+                (when (ctx.satisfaction) {
+                    "satisfied" -> "，使用体验满意"
+                    "neutral" -> "，使用体验一般"
+                    "looking_for_alternatives" -> "，正在寻找替代品"
+                    else -> ""
+                })
+        } else {
+            "你目前没有使用同类产品"
+        }
+
+        val awarenessDesc = when (ctx.brandAwareness) {
+            "never_heard" -> "从未听说过这个品牌"
+            "heard_not_tried" -> "听说过但从未购买或使用"
+            "tried_once" -> "曾经买过/试过，但不常用"
+            "regular_user" -> "经常购买，是这个品牌的老用户"
+            else -> "从未听说过这个品牌"
+        }
+
+        val competitorsText = if (input.competitors.isNotEmpty()) {
+            "市场上的主要竞品：" + input.competitors.joinToString("、") {
+                "${it.brandName}（¥${it.price}${if (it.positioning.isNotBlank()) "，${it.positioning}" else ""}）"
+            }
+        } else {
+            ""
+        }
+
+        return buildString {
+            appendLine("Your current $category usage: $currentUsage")
+            appendLine("Your awareness of \"$brand\": $awarenessDesc")
+            appendLine("You've seen ${ctx.recentAdExposure} similar product ads/promotions this week.")
+            if (competitorsText.isNotBlank()) appendLine(competitorsText)
+        }.trimEnd()
+    }
+
     private fun buildUserPrompt(input: SimulationInput, agent: Agent): String {
         val persona = agent.persona
         val placement = input.adPlacements.firstOrNull()
         val platform = placement?.platform ?: "xiaohongshu"
+        val consumerSection = buildConsumerContextSection(persona, input)
         return """
 You are: ${persona.name}, ${persona.age} years old, ${persona.gender}
 Income: ${persona.income}, City tier: ${persona.cityTier}
@@ -177,6 +224,8 @@ Purchase frequency on platform: ${persona.platformBehavior.purchaseFrequency}
 Price sensitivity: ${persona.consumptionHabits.priceSensitivity}
 Decision speed: ${persona.consumptionHabits.decisionSpeed}
 Brand loyalty: ${persona.consumptionHabits.brandLoyalty}
+
+$consumerSection
 
 You are browsing $platform. An ad appears via ${placement?.placementType ?: "INFO_FEED"}:
 - Brand: ${input.product.brandName}

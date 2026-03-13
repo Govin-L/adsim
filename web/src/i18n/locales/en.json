@@ -17,7 +17,13 @@
         "creative1": "Mid-tier beauty KOLs (10K-100K followers) swatch videos + daily makeup tutorials, highlighting longevity and pigmentation, natural seeding style",
         "creative2": "Shade comparison collages + usage scenarios, limited-time discounts, CTA to Tmall flagship store",
         "creative3": "Target keywords: affordable lip glaze, non-fading lipstick, student-friendly makeup",
-        "region": "Nationwide"
+        "region": "Nationwide",
+        "competitor1Brand": "MAC",
+        "competitor1Pos": "International luxury cosmetics",
+        "competitor2Brand": "Judydoll",
+        "competitor2Pos": "Affordable domestic makeup",
+        "competitor3Brand": "YSL",
+        "competitor3Pos": "Luxury cosmetics"
       },
       "ecommerce": {
         "title": "PROYA · Bubble Mask",
@@ -29,7 +35,11 @@
         "creative1": "15s bubble-forming process + before/after pore comparison, paired with #BubbleDance challenge",
         "creative2": "KOL blind test: bubble mask vs regular mask, highlighting cleaning effect and fun factor",
         "creative3": "User-generated content showing bubble mask usage, authentic seeding note style",
-        "region": "Nationwide"
+        "region": "Nationwide",
+        "competitor1Brand": "PROYA Double Anti Mask",
+        "competitor1Pos": "Same brand, different mask",
+        "competitor2Brand": "Winona Soothing Mask",
+        "competitor2Pos": "Sensitive skin specialist"
       },
       "app": {
         "title": "App Download Campaign",
@@ -144,6 +154,26 @@
       "interests": "Interests",
       "interestPlaceholder": "Add interest tag",
       "interestAdd": "Add"
+    },
+    "market": {
+      "title": "Market Context",
+      "brandAwareness": "Brand Awareness",
+      "awarenessNew": "New Brand",
+      "awarenessEmerging": "Emerging",
+      "awarenessWellKnown": "Well Known",
+      "awarenessTop": "Top Brand",
+      "campaignGoal": "Campaign Goal",
+      "goalAcquisition": "Acquisition",
+      "goalRetention": "Retention",
+      "goalMixed": "Mixed",
+      "competitors": "Competitors",
+      "competitorBrand": "Brand",
+      "competitorBrandPlaceholder": "e.g. MAC",
+      "competitorPrice": "Price",
+      "competitorPositioning": "Positioning",
+      "competitorPositioningPlaceholder": "e.g. International luxury cosmetics",
+      "addCompetitor": "Add Competitor",
+      "competitorHint": "Add 1-3 main competitors for more realistic simulation"
     },
     "settings": {
       "title": "Simulation Settings",

@@ -56,6 +56,13 @@ export const templates: Template[] = [
         region: t('create.templates.beauty.region'),
         interests: [],
       },
+      competitors: [
+        { brandName: t('create.templates.beauty.competitor1Brand'), price: 170, positioning: t('create.templates.beauty.competitor1Pos') },
+        { brandName: t('create.templates.beauty.competitor2Brand'), price: 39, positioning: t('create.templates.beauty.competitor2Pos') },
+        { brandName: t('create.templates.beauty.competitor3Brand'), price: 320, positioning: t('create.templates.beauty.competitor3Pos') },
+      ],
+      brandAwareness: 'WELL_KNOWN' as const,
+      campaignGoal: 'ACQUISITION' as const,
     }),
   },
   {
@@ -103,6 +110,12 @@ export const templates: Template[] = [
         region: t('create.templates.ecommerce.region'),
         interests: [],
       },
+      competitors: [
+        { brandName: t('create.templates.ecommerce.competitor1Brand'), price: 89, positioning: t('create.templates.ecommerce.competitor1Pos') },
+        { brandName: t('create.templates.ecommerce.competitor2Brand'), price: 128, positioning: t('create.templates.ecommerce.competitor2Pos') },
+      ],
+      brandAwareness: 'WELL_KNOWN' as const,
+      campaignGoal: 'ACQUISITION' as const,
     }),
   },
   {

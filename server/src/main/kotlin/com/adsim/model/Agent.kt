@@ -14,6 +14,14 @@ data class Agent(
     val decisions: Decisions? = null
 )
 
+data class ConsumerContext(
+    val currentBrand: String? = null,
+    val currentProductPrice: Double? = null,
+    val satisfaction: String? = null,  // "satisfied" / "neutral" / "looking_for_alternatives"
+    val brandAwareness: String = "never_heard",  // "never_heard" / "heard_not_tried" / "tried_once" / "regular_user"
+    val recentAdExposure: Int = 0
+)
+
 data class Persona(
     val name: String,
     val age: Int,
@@ -22,7 +30,8 @@ data class Persona(
     val cityTier: Int,
     val interests: List<String>,
     val platformBehavior: PlatformBehavior,
-    val consumptionHabits: ConsumptionHabits
+    val consumptionHabits: ConsumptionHabits,
+    val consumerContext: ConsumerContext = ConsumerContext()
 )
 
 enum class IncomeLevel { LOW, MEDIUM, HIGH }
