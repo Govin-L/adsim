@@ -116,7 +116,7 @@ class SimulationService(
             val completedAgents = agentRepository.findBySimulationId(simulationId)
             val withDecisions = completedAgents.count { it.decisions != null }
             logger.info("[{}] Phase 3: Aggregating, {}/{} agents have decisions", simulationId, withDecisions, completedAgents.size)
-            val results = resultAggregator.aggregate(completedAgents, simulation.input.totalBudget, simulation.input.adPlacements)
+            val results = resultAggregator.aggregate(completedAgents, simulation.input.totalBudget, simulation.input.adPlacements, chatModel)
 
             // Complete
             simulationRepository.save(

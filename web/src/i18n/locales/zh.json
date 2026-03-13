@@ -173,7 +173,10 @@
       "overallConversionRate": "总转化率",
       "overallConversionRateTip": "从曝光到最终转化的整体比例 = 注意率 × 点击率 × 转化率",
       "estimatedCPA": "预估 CPA",
-      "estimatedCPATip": "获取一个转化用户的平均成本（CPA = Cost Per Action），基于预算和预估曝光量计算"
+      "estimatedCPALabel": "行业基准估算 CPA",
+      "estimatedCPATip": "获取一个转化用户的平均成本（CPA = Cost Per Action），基于预算和预估曝光量计算",
+      "simulatedBadge": "模拟参考",
+      "simulatedDisclaimer": "模拟转化率仅作相对参考，不代表实际投放效果"
     },
     "funnel": {
       "title": "转化漏斗",
@@ -183,10 +186,27 @@
       "conversion": "转化",
       "agents": "人数"
     },
+    "insights": {
+      "title": "关键发现"
+    },
     "dropOff": {
       "title": "流失原因",
       "noticedNotClicked": "看到但未点击",
-      "clickedNotConverted": "点击但未转化"
+      "clickedNotConverted": "点击但未转化",
+      "quotes": "代表性反馈",
+      "expandQuotes": "查看反馈",
+      "collapseQuotes": "收起"
+    },
+    "segments": {
+      "title": "人群画像洞察",
+      "age": "年龄分布",
+      "gender": "性别分布",
+      "income": "收入水平",
+      "priceSensitivity": "价格敏感度",
+      "highest": "最高",
+      "lowest": "最低",
+      "conversionRate": "转化率",
+      "agents": "人"
     },
     "agents": {
       "title": "Agent 列表",

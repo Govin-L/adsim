@@ -74,6 +74,35 @@ export interface Simulation {
   completedAt: string | null
 }
 
+export interface ClusteredReason {
+  category: string
+  percentage: number
+  count: number
+  quotes: string[]
+}
+
+export interface ClusteredDropOffReasons {
+  attentionToClick: ClusteredReason[]
+  clickToConversion: ClusteredReason[]
+}
+
+export interface SegmentStat {
+  label: string
+  agentCount: number
+  convertedCount: number
+  conversionRate: number
+  highlight: string | null  // "highest" | "lowest" | null
+}
+
+export interface SegmentInsight {
+  dimension: string
+  segments: SegmentStat[]
+}
+
+export interface InsightSummary {
+  text: string
+}
+
 export interface SimulationResults {
   totalAgents: number
   successfulAgents: number
@@ -94,6 +123,9 @@ export interface SimulationResults {
     attentionToClick: { reason: string; count: number; percentage: number }[]
     clickToConversion: { reason: string; count: number; percentage: number }[]
   }
+  clusteredReasons?: ClusteredDropOffReasons
+  segmentInsights?: SegmentInsight[]
+  topInsights?: InsightSummary[]
 }
 
 export interface Agent {
@@ -118,9 +150,9 @@ export interface Agent {
     }
   }
   decisions: {
-    attention: { passed: boolean; reasoning: string }
-    click: { passed: boolean; reasoning: string }
-    conversion: { passed: boolean; reasoning: string }
+    attention: { passed: boolean; reasoning: string; factors?: string[] }
+    click: { passed: boolean; reasoning: string; factors?: string[] }
+    conversion: { passed: boolean; reasoning: string; factors?: string[] }
   } | null
 }
 

@@ -1,11 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { api, type Simulation, type Agent } from '../api/client'
-import FunnelChart from '../components/FunnelChart'
-import MetricsCards from '../components/MetricsCards'
-import DropOffReasons from '../components/DropOffReasons'
-import LanguageSwitch from '../components/LanguageSwitch'
+import { ArrowLeft, Loader2, AlertCircle, ChevronDown } from 'lucide-react'
+import { api, type Simulation, type Agent } from '@/api/client'
+import FunnelChart from '@/components/FunnelChart'
+import MetricsCards from '@/components/MetricsCards'
+import DropOffReasons from '@/components/DropOffReasons'
+import InsightsBanner from '@/components/InsightsBanner'
+import SegmentAnalysis from '@/components/SegmentAnalysis'
+import LanguageSwitch from '@/components/LanguageSwitch'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { Separator } from '@/components/ui/separator'
+import { cn } from '@/lib/utils'
 
 export default function SimulationResult() {
   const { t } = useTranslation()
@@ -46,7 +55,6 @@ export default function SimulationResult() {
       es.onerror = () => {
         es?.close()
         if (!done) {
-          // Reconnect after 2s, also poll current state
           api.getSimulation(id).then(sim => {
             if (sim) {
               setSimulation(sim)
@@ -74,16 +82,19 @@ export default function SimulationResult() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-bg)' }}>
-        <p style={{ color: 'var(--color-error)' }}>{error}</p>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-destructive">{error}</p>
       </div>
     )
   }
 
   if (!simulation) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-bg)' }}>
-        <p style={{ color: 'var(--color-text-tertiary)' }}>{t('result.loading')}</p>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 size={16} className="animate-spin" />
+          <span>{t('result.loading')}</span>
+        </div>
       </div>
     )
   }
@@ -92,79 +103,83 @@ export default function SimulationResult() {
   const pct = simulation.progress.total > 0 ? (simulation.progress.completed / simulation.progress.total) * 100 : 0
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b animate-in" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
-        <div className="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/')} className="cursor-pointer" style={{ color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-display)', fontSize: '1.25rem' }}>
+      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10 animate-in">
+        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate('/')} className="cursor-pointer font-serif text-xl tracking-tight text-muted-foreground hover:text-foreground transition-colors">
               {t('app.name')}
             </button>
-            <span style={{ color: 'var(--color-border)' }}>/</span>
+            <Separator orientation="vertical" className="h-5" />
             <div>
-              <h1 className="text-lg font-semibold" style={{ letterSpacing: '-0.01em' }}>{simulation.input.product.name}</h1>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
+              <h1 className="text-sm font-semibold tracking-tight">{simulation.input.product.name}</h1>
+              <p className="text-[11px] text-muted-foreground">
                 {[...new Set(simulation.input.adPlacements.map(p => p.platform))].join(' · ')} &middot; ¥{simulation.input.totalBudget.toLocaleString()} {t('result.budget')}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <StatusBadge status={simulation.status} t={t} />
             <LanguageSwitch />
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-8 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Progress */}
         {isRunning && (
           <div className="mb-10 animate-in stagger-1">
-            <div className="flex justify-between text-xs mb-2.5" style={{ color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+            <div className="flex justify-between text-xs mb-2.5 text-muted-foreground font-mono">
               <span>{t(`result.status.${simulation.status}`)}</span>
               <span>{simulation.progress.completed}/{simulation.progress.total}</span>
             </div>
-            <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--color-border-subtle)' }}>
-              <div className="h-2 rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'var(--color-text)', animation: pct < 100 ? 'pulse-bar 2s ease-in-out infinite' : 'none' }} />
-            </div>
+            <Progress value={pct} className={cn('h-2', pct < 100 && '[&>[data-slot=progress-indicator]]:animate-pulse')} />
 
             {/* Plan Summary */}
             <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Product */}
-              <div className="p-4 rounded-xl" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-tertiary)' }}>{t('create.product.title')}</p>
-                <p className="text-sm font-medium">{simulation.input.product.brandName} · {simulation.input.product.name}</p>
-                <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                  ¥{simulation.input.product.price} · {simulation.input.product.category}
-                </p>
-                <p className="text-xs mt-1.5 line-clamp-2" style={{ color: 'var(--color-text-tertiary)' }}>
-                  {simulation.input.product.sellingPoints}
-                </p>
-              </div>
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-2 text-muted-foreground">{t('create.product.title')}</p>
+                  <p className="text-sm font-medium">{simulation.input.product.brandName} · {simulation.input.product.name}</p>
+                  <p className="text-xs mt-1 text-muted-foreground">
+                    ¥{simulation.input.product.price} · {simulation.input.product.category}
+                  </p>
+                  <p className="text-xs mt-1.5 line-clamp-2 text-muted-foreground/70">
+                    {simulation.input.product.sellingPoints}
+                  </p>
+                </CardContent>
+              </Card>
 
               {/* Audience */}
-              <div className="p-4 rounded-xl" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-tertiary)' }}>{t('create.audience.title')}</p>
-                <p className="text-sm font-medium">
-                  {simulation.input.targetAudience.gender === 'all' ? t('create.audience.genderAll') : simulation.input.targetAudience.gender === 'female' ? t('create.audience.genderFemale') : t('create.audience.genderMale')}
-                  {simulation.input.targetAudience.ageRange && ` · ${simulation.input.targetAudience.ageRange[0]}-${simulation.input.targetAudience.ageRange[1]}${t('create.audience.ageMax').charAt(t('create.audience.ageMax').length - 1) === '龄' ? '岁' : ''}`}
-                </p>
-                {simulation.input.targetAudience.region && (
-                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>{simulation.input.targetAudience.region}</p>
-                )}
-              </div>
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-2 text-muted-foreground">{t('create.audience.title')}</p>
+                  <p className="text-sm font-medium">
+                    {simulation.input.targetAudience.gender === 'all' ? t('create.audience.genderAll') : simulation.input.targetAudience.gender === 'female' ? t('create.audience.genderFemale') : t('create.audience.genderMale')}
+                    {simulation.input.targetAudience.ageRange && ` · ${simulation.input.targetAudience.ageRange[0]}-${simulation.input.targetAudience.ageRange[1]}${t('create.audience.ageMax').charAt(t('create.audience.ageMax').length - 1) === '\u9F84' ? '\u5C81' : ''}`}
+                  </p>
+                  {simulation.input.targetAudience.region && (
+                    <p className="text-xs mt-1 text-muted-foreground">{simulation.input.targetAudience.region}</p>
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Placements */}
-              <div className="p-4 rounded-xl" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-tertiary)' }}>{t('create.placement.title')}</p>
-                <div className="space-y-1.5">
-                  {simulation.input.adPlacements.map((p, i) => (
-                    <div key={i} className="flex justify-between text-xs">
-                      <span>{t(`create.platform.${p.platform}`)}</span>
-                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>¥{p.budget.toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-2 text-muted-foreground">{t('create.placement.title')}</p>
+                  <div className="space-y-1.5">
+                    {simulation.input.adPlacements.map((p, i) => (
+                      <div key={i} className="flex justify-between text-xs">
+                        <span>{t(`create.platform.${p.platform}`)}</span>
+                        <span className="font-mono text-muted-foreground">¥{p.budget.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Simulation stages */}
@@ -174,16 +189,20 @@ export default function SimulationResult() {
                 const isCurrent = simulation.status === stage
                 return (
                   <div key={stage} className="flex items-center gap-3">
-                    {i > 0 && <div className="w-8 h-px" style={{ background: isDone ? 'var(--color-text)' : 'var(--color-border)' }} />}
+                    {i > 0 && <div className={cn('w-8 h-px', isDone ? 'bg-foreground' : 'bg-border')} />}
                     <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full" style={{
-                        background: isDone ? 'var(--color-text)' : isCurrent ? 'var(--color-accent)' : 'var(--color-border)',
-                        animation: isCurrent ? 'pulse 2s ease-in-out infinite' : 'none'
-                      }} />
-                      <span className="text-[11px]" style={{
-                        color: isDone ? 'var(--color-text)' : isCurrent ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
-                        fontWeight: isCurrent ? 600 : 400
-                      }}>
+                      <div className={cn(
+                        'w-2 h-2 rounded-full',
+                        isDone && 'bg-foreground',
+                        isCurrent && 'bg-teal animate-pulse',
+                        !isDone && !isCurrent && 'bg-border'
+                      )} />
+                      <span className={cn(
+                        'text-[11px]',
+                        isDone && 'text-foreground',
+                        isCurrent && 'text-teal font-semibold',
+                        !isDone && !isCurrent && 'text-muted-foreground'
+                      )}>
                         {t(`result.status.${stage}`)}
                       </span>
                     </div>
@@ -197,49 +216,54 @@ export default function SimulationResult() {
         {/* Results */}
         {simulation.status === 'COMPLETED' && simulation.results && (
           <>
+            {simulation.results.topInsights && simulation.results.topInsights.length > 0 && (
+              <InsightsBanner insights={simulation.results.topInsights} />
+            )}
             <MetricsCards metrics={simulation.results.metrics} />
             <FunnelChart funnel={simulation.results.funnel} />
-            <DropOffReasons dropOffReasons={simulation.results.dropOffReasons} />
+            {simulation.results.segmentInsights && simulation.results.segmentInsights.length > 0 && (
+              <SegmentAnalysis segments={simulation.results.segmentInsights} />
+            )}
+            <DropOffReasons
+              dropOffReasons={simulation.results.dropOffReasons}
+              clusteredReasons={simulation.results.clusteredReasons}
+            />
 
             {/* Agent List */}
             <section className="mt-8 animate-in stagger-5">
-              <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--color-text-secondary)', letterSpacing: '0.08em' }}>
-                {t('result.agents.title')} <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)' }}>({agents.length})</span>
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
+                {t('result.agents.title')} <span className="font-mono text-muted-foreground/60">({agents.length})</span>
               </h2>
               <div className="space-y-2">
                 {agents.slice(0, agentPage * agentPageSize).map(agent => (
-                  <div key={agent.id}
-                    onClick={() => navigate(`/simulation/${id}/agent/${agent.id}`)}
-                    className="p-4 rounded-xl flex justify-between items-center cursor-pointer transition-all"
-                    style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--color-text-tertiary)'}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--color-border)'}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium text-sm">{agent.persona.name}</span>
-                      <span className="text-xs" style={{ color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)' }}>
-                        {agent.persona.age} &middot; {agent.persona.gender} &middot; {agent.persona.income}
-                      </span>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <FunnelDot label={t('result.agents.attention')} passed={agent.decisions?.attention.passed} />
-                      <FunnelDot label={t('result.agents.click')} passed={agent.decisions?.click.passed} />
-                      <FunnelDot label={t('result.agents.convert')} passed={agent.decisions?.conversion.passed} />
-                    </div>
-                  </div>
+                  <Card key={agent.id}
+                    className="cursor-pointer transition-all hover:border-muted-foreground/40 hover:shadow-sm"
+                    onClick={() => navigate(`/simulation/${id}/agent/${agent.id}`)}>
+                    <CardContent className="py-3 flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        <span className="font-medium text-sm">{agent.persona.name}</span>
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {agent.persona.age} &middot; {agent.persona.gender} &middot; {agent.persona.income}
+                        </span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <FunnelDot label={t('result.agents.attention')} passed={agent.decisions?.attention.passed} />
+                        <FunnelDot label={t('result.agents.click')} passed={agent.decisions?.click.passed} />
+                        <FunnelDot label={t('result.agents.convert')} passed={agent.decisions?.conversion.passed} />
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
               {agents.length > agentPage * agentPageSize && (
-                <button
-                  onClick={() => setAgentPage(p => p + 1)}
-                  className="w-full mt-3 py-2.5 rounded-lg text-xs font-medium cursor-pointer transition-colors"
-                  style={{ color: 'var(--color-text-tertiary)', border: '1px dashed var(--color-border)' }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--color-text-tertiary)'}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--color-border)'}
-                >
+                <Button
+                  variant="outline"
+                  className="w-full mt-3 border-dashed text-muted-foreground hover:text-foreground"
+                  onClick={() => setAgentPage(p => p + 1)}>
+                  <ChevronDown size={14} className="mr-1.5" />
                   {t('result.agents.showing', { shown: Math.min(agentPage * agentPageSize, agents.length), total: agents.length })}
                   {' · '}{t('result.agents.loadMore')}
-                </button>
+                </Button>
               )}
             </section>
           </>
@@ -248,20 +272,19 @@ export default function SimulationResult() {
         {/* Failed */}
         {simulation.status === 'FAILED' && (
           <div className="text-center py-20 animate-fade">
-            <p className="text-lg font-medium" style={{ color: 'var(--color-error)' }}>{t('result.failed.title')}</p>
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-destructive/10 mb-4">
+              <AlertCircle size={24} className="text-destructive" />
+            </div>
+            <p className="text-lg font-medium text-destructive">{t('result.failed.title')}</p>
             {simulation.errorMessage && (
-              <p className="mt-3 text-sm max-w-lg mx-auto px-4 py-3 rounded-lg" style={{ color: 'var(--color-text-secondary)', background: 'var(--color-error-bg)' }}>
+              <p className="mt-3 text-sm max-w-lg mx-auto px-4 py-3 rounded-lg text-muted-foreground bg-destructive/5 border border-destructive/10">
                 {simulation.errorMessage}
               </p>
             )}
-            <button onClick={() => navigate('/')}
-              className="mt-6 px-6 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-opacity"
-              style={{ background: 'var(--color-text)', color: 'var(--color-bg)' }}
-              onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
-              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-            >
+            <Button onClick={() => navigate('/')} className="mt-6 bg-teal hover:bg-teal/90">
+              <ArrowLeft size={14} className="mr-1.5" />
               {t('result.failed.retry')}
-            </button>
+            </Button>
           </div>
         )}
       </main>
@@ -270,29 +293,41 @@ export default function SimulationResult() {
 }
 
 function StatusBadge({ status, t }: { status: string; t: (key: string) => string }) {
-  const styles: Record<string, { bg: string; color: string }> = {
-    PENDING: { bg: 'var(--color-border-subtle)', color: 'var(--color-text-tertiary)' },
-    GENERATING: { bg: '#eff6ff', color: '#2563eb' },
-    SIMULATING: { bg: 'var(--color-accent-bg)', color: 'var(--color-accent)' },
-    AGGREGATING: { bg: '#faf5ff', color: '#7c3aed' },
-    COMPLETED: { bg: 'var(--color-success-bg)', color: 'var(--color-success)' },
-    FAILED: { bg: 'var(--color-error-bg)', color: 'var(--color-error)' },
+  const variants: Record<string, string> = {
+    PENDING: 'bg-muted text-muted-foreground',
+    GENERATING: 'bg-blue-50 text-blue-600',
+    SIMULATING: 'bg-teal-light text-teal',
+    AGGREGATING: 'bg-purple-50 text-purple-600',
+    COMPLETED: 'bg-success-light text-success',
+    FAILED: 'bg-error-light text-error',
   }
-  const s = styles[status] || styles.PENDING
   return (
-    <span className="px-3 py-1 rounded-full text-xs font-semibold" style={{ background: s.bg, color: s.color, fontFamily: 'var(--font-mono)' }}>
+    <Badge variant="outline" className={cn('font-mono text-xs', variants[status] || variants.PENDING)}>
       {t(`result.status.${status}`)}
-    </span>
+    </Badge>
   )
 }
 
 function FunnelDot({ label, passed }: { label: string; passed?: boolean }) {
-  const bg = passed === undefined ? 'var(--color-border)' : passed ? 'var(--color-success)' : 'var(--color-error)'
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1 rounded text-xs" title={label}
-      style={{ background: passed === undefined ? 'var(--color-border-subtle)' : passed ? 'var(--color-success-bg)' : 'var(--color-error-bg)' }}>
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: bg }} />
-      <span style={{ color: bg, fontFamily: 'var(--font-mono)', fontSize: '0.65rem' }}>{label}</span>
+    <div className={cn(
+      'flex items-center gap-1.5 px-2 py-1 rounded text-xs',
+      passed === undefined && 'bg-muted',
+      passed === true && 'bg-success-light',
+      passed === false && 'bg-error-light'
+    )} title={label}>
+      <span className={cn(
+        'w-1.5 h-1.5 rounded-full',
+        passed === undefined && 'bg-border',
+        passed === true && 'bg-success',
+        passed === false && 'bg-error'
+      )} />
+      <span className={cn(
+        'font-mono text-[0.65rem]',
+        passed === undefined && 'text-muted-foreground',
+        passed === true && 'text-success',
+        passed === false && 'text-error'
+      )}>{label}</span>
     </div>
   )
 }

@@ -173,7 +173,10 @@
       "overallConversionRate": "Overall Conv. Rate",
       "overallConversionRateTip": "End-to-end conversion from exposure to purchase = Attention × CTR × CVR",
       "estimatedCPA": "Est. CPA",
-      "estimatedCPATip": "Cost Per Action: average cost to acquire one conversion, based on budget and estimated reach"
+      "estimatedCPALabel": "Industry Est. CPA",
+      "estimatedCPATip": "Cost Per Action: average cost to acquire one conversion, based on budget and estimated reach",
+      "simulatedBadge": "Simulated",
+      "simulatedDisclaimer": "Simulated conversion rates are for relative comparison only, not actual performance predictions"
     },
     "funnel": {
       "title": "Conversion Funnel",
@@ -183,10 +186,27 @@
       "conversion": "Conversion",
       "agents": "Agents"
     },
+    "insights": {
+      "title": "Key Insights"
+    },
     "dropOff": {
       "title": "Drop-off Reasons",
       "noticedNotClicked": "Noticed but didn't click",
-      "clickedNotConverted": "Clicked but didn't convert"
+      "clickedNotConverted": "Clicked but didn't convert",
+      "quotes": "Representative Quotes",
+      "expandQuotes": "View quotes",
+      "collapseQuotes": "Collapse"
+    },
+    "segments": {
+      "title": "Segment Analysis",
+      "age": "Age Groups",
+      "gender": "Gender",
+      "income": "Income Level",
+      "priceSensitivity": "Price Sensitivity",
+      "highest": "Highest",
+      "lowest": "Lowest",
+      "conversionRate": "Conv. Rate",
+      "agents": "agents"
     },
     "agents": {
       "title": "Agents",
