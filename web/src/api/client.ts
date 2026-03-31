@@ -67,7 +67,9 @@ export interface SimulationInput {
 }
 
 export interface ParsePlanResponse {
-  input: SimulationInput
+  mergedPlan: SimulationInput
+  changedFields: string[]
+  warnings: string[]
   missingFields: string[]
 }
 
@@ -178,10 +180,10 @@ export const api = {
       method: 'POST',
     }),
 
-  parsePlan: (content: string) =>
+  parsePlan: (content: string, currentPlan?: SimulationInput | null) =>
     request<ParsePlanResponse>('/simulations/parse', {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, currentPlan: currentPlan ?? null }),
     }),
 
   listSimulations: () =>

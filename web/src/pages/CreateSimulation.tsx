@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Sparkles, Plus, X, Send, Loader2, ArrowRight, Package, Target, Megaphone, Clock, CheckCircle2, XCircle, Activity, Building2 } from 'lucide-react'
-import { api, type SimulationInput, type AdPlacement, type CompetitorInfo, type Simulation } from '@/api/client'
+import { api, type SimulationInput, type AdPlacement, type CompetitorInfo, type ParsePlanResponse, type Simulation } from '@/api/client'
 import { templates } from '@/data/templates'
 import LanguageSwitch from '@/components/LanguageSwitch'
 import LlmSettings from '@/components/LlmSettings'
@@ -32,6 +32,7 @@ export default function CreateSimulation() {
   const [rawInput, setRawInput] = useState('')
   const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [pendingPatch, setPendingPatch] = useState<ParsePlanResponse | null>(null)
   const [agentCount, setAgentCount] = useState(20)
   const [duplicateWarning, setDuplicateWarning] = useState<number | null>(null)
   const [history, setHistory] = useState<Simulation[]>([])
@@ -46,24 +47,31 @@ export default function CreateSimulation() {
 
   const handleTemplate = (key: string) => {
     const tpl = templates.find(t => t.key === key)
-    if (tpl) setPlan(tpl.getInput())
+    if (tpl) {
+      setPendingPatch(null)
+      setPlan(tpl.getInput())
+    }
   }
 
   const handleSend = async () => {
-    if (!input.trim() || parsing) return
+    if (!input.trim() || parsing || pendingPatch) return
     const userMsg = input.trim()
     setInput('')
     setMessages(prev => [...prev, { role: 'user', content: userMsg }])
     setRawInput(prev => prev ? `${prev}\n${userMsg}` : userMsg)
     setParsing(true)
     try {
-      const context = plan
-        ? `Current plan:\n${JSON.stringify(plan, null, 2)}\n\nUser wants to change:\n${userMsg}`
-        : userMsg
-      const res = await api.parsePlan(context)
-      setPlan(res.input)
-      if (res.missingFields.length > 0) {
-        setMessages(prev => [...prev, { role: 'ai', content: `${t('create.missingFields')} ${res.missingFields.join(', ')}` }])
+      const res = await api.parsePlan(userMsg, plan)
+      if (plan) {
+        if (res.changedFields.length > 0) {
+          setPendingPatch(res)
+        }
+        setMessages(prev => [...prev, { role: 'ai', content: buildPatchSummary(res) }])
+      } else {
+        setPlan(res.mergedPlan)
+        if (res.missingFields.length > 0) {
+          setMessages(prev => [...prev, { role: 'ai', content: `${t('create.missingFields')} ${res.missingFields.join(', ')}` }])
+        }
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Parse failed')
@@ -73,7 +81,7 @@ export default function CreateSimulation() {
   }
 
   const handleSubmit = async () => {
-    if (!plan) return
+    if (!plan || pendingPatch) return
     setSubmitting(true)
     try {
       const sim = await api.createSimulation(plan, rawInput, agentCount)
@@ -85,10 +93,16 @@ export default function CreateSimulation() {
   }
 
   const updateProduct = (field: string, value: unknown) => {
-    if (plan) setPlan({ ...plan, product: { ...plan.product, [field]: value } })
+    if (plan) {
+      setPendingPatch(null)
+      setPlan({ ...plan, product: { ...plan.product, [field]: value } })
+    }
   }
   const updateAudience = (field: string, value: unknown) => {
-    if (plan) setPlan({ ...plan, targetAudience: { ...plan.targetAudience, [field]: value } })
+    if (plan) {
+      setPendingPatch(null)
+      setPlan({ ...plan, targetAudience: { ...plan.targetAudience, [field]: value } })
+    }
   }
   const isDuplicate = (platform: string, type: string, excludeIdx?: number) =>
     plan?.adPlacements.some((p, i) => i !== excludeIdx && p.platform === platform && p.placementType === type) ?? false
@@ -101,6 +115,7 @@ export default function CreateSimulation() {
       setTimeout(() => setDuplicateWarning(null), 3000)
       return
     }
+    setPendingPatch(null)
     setDuplicateWarning(null)
     const placements = [...plan.adPlacements]
     placements[i] = updated
@@ -109,11 +124,13 @@ export default function CreateSimulation() {
   }
   const removePlacement = (i: number) => {
     if (!plan) return
+    setPendingPatch(null)
     const placements = plan.adPlacements.filter((_, idx) => idx !== i)
     setPlan({ ...plan, adPlacements: placements, totalBudget: placements.reduce((s, p) => s + p.budget, 0) })
   }
   const addPlacement = () => {
     if (!plan) return
+    setPendingPatch(null)
     const platforms = ['xiaohongshu', 'douyin', 'kuaishou', 'bilibili', 'weibo', 'wechat_moments', 'wechat_channels', 'meta', 'google', 'tiktok']
     const types = ['INFO_FEED', 'SEARCH', 'KOL_SEEDING', 'SHORT_VIDEO', 'SPLASH_SCREEN', 'LIVESTREAM', 'HASHTAG_CHALLENGE', 'SHOPPING']
     let platform = 'xiaohongshu', placementType = 'INFO_FEED'
@@ -124,19 +141,51 @@ export default function CreateSimulation() {
 
   const updateCompetitor = (i: number, field: keyof CompetitorInfo, value: string | number) => {
     if (!plan) return
+    setPendingPatch(null)
     const competitors = [...(plan.competitors || [])]
     competitors[i] = { ...competitors[i], [field]: value }
     setPlan({ ...plan, competitors })
   }
   const removeCompetitor = (i: number) => {
     if (!plan) return
+    setPendingPatch(null)
     setPlan({ ...plan, competitors: (plan.competitors || []).filter((_, idx) => idx !== i) })
   }
   const addCompetitor = () => {
     if (!plan) return
+    setPendingPatch(null)
     const competitors = plan.competitors || []
     if (competitors.length >= 5) return
     setPlan({ ...plan, competitors: [...competitors, { brandName: '', price: 0, positioning: '' }] })
+  }
+
+  const buildPatchSummary = (res: ParsePlanResponse) => {
+    const lines: string[] = []
+    if (res.changedFields.length > 0) {
+      lines.push(`${t('create.patchDetected')} ${res.changedFields.join(', ')}`)
+    } else {
+      lines.push(t('create.patchNoChanges'))
+    }
+    if (res.warnings.length > 0) {
+      lines.push(`${t('create.patchWarnings')} ${res.warnings.join('；')}`)
+    }
+    if (res.missingFields.length > 0) {
+      lines.push(`${t('create.missingFields')} ${res.missingFields.join(', ')}`)
+    }
+    return lines.join('\n')
+  }
+
+  const applyPendingPatch = () => {
+    if (!pendingPatch) return
+    setPlan(pendingPatch.mergedPlan)
+    setMessages(prev => [...prev, { role: 'ai', content: t('create.patchApplied') }])
+    setPendingPatch(null)
+  }
+
+  const discardPendingPatch = () => {
+    if (!pendingPatch) return
+    setMessages(prev => [...prev, { role: 'ai', content: t('create.patchDiscarded') }])
+    setPendingPatch(null)
   }
 
   return (
@@ -260,6 +309,37 @@ export default function CreateSimulation() {
                 {t('create.parsing')}
               </div>
             </div>
+          )}
+
+          {pendingPatch && (
+            <Card className="mb-4 border-teal/30 bg-teal/5 animate-in">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">{t('create.patchTitle')}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">{t('create.patchDescription')}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {pendingPatch.changedFields.map(field => (
+                    <Badge key={field} variant="outline" className="text-[11px] border-teal/40 text-teal">
+                      {field}
+                    </Badge>
+                  ))}
+                </div>
+                {pendingPatch.warnings.length > 0 && (
+                  <div className="rounded-lg border border-amber/30 bg-amber/10 px-3 py-2 text-xs text-amber">
+                    {t('create.patchWarnings')} {pendingPatch.warnings.join('；')}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Button type="button" className="bg-teal hover:bg-teal/90" onClick={applyPendingPatch}>
+                    {t('create.patchApply')}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={discardPendingPatch}>
+                    {t('create.patchDiscard')}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* STATE 2: Plan Editor */}
@@ -532,7 +612,7 @@ export default function CreateSimulation() {
                 </div>
                 <div className="flex-1 pt-5">
               <Button size="lg" className="w-full h-12 text-sm font-semibold tracking-wide bg-teal hover:bg-teal/90"
-                disabled={submitting} onClick={handleSubmit}>
+                disabled={submitting || !!pendingPatch} onClick={handleSubmit}>
                 {submitting ? (
                   <><Loader2 size={16} className="mr-2 animate-spin" />{t('create.submitting')}</>
                 ) : (
@@ -554,9 +634,9 @@ export default function CreateSimulation() {
           <Input value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSend()}
             placeholder={t('create.chatPlaceholder')}
-            disabled={parsing}
+            disabled={parsing || !!pendingPatch}
             className="flex-1" />
-          <Button onClick={handleSend} disabled={parsing || !input.trim()} size="icon" className="shrink-0 bg-teal hover:bg-teal/90">
+          <Button onClick={handleSend} disabled={parsing || !input.trim() || !!pendingPatch} size="icon" className="shrink-0 bg-teal hover:bg-teal/90">
             {parsing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </Button>
           <BuildInfo />

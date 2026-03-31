@@ -4,16 +4,16 @@
 
 > Simulate before you spend.
 
-AI Agent-powered marketing effectiveness prediction engine. Generate platform-specific user agents, simulate their reactions to your actual ad creatives, and let conversion metrics emerge naturally from agent behavior — not from formulas.
+AI-agent-assisted marketing plan evaluator. The current build focuses on structured plan parsing, placement-level simulation from creative descriptions, and insight generation from agent behavior. Business metrics such as CPA remain benchmark-based estimates rather than pure emergent outputs.
 
 ## How It Works
 
-Traditional tools predict marketing performance by plugging numbers into statistical models. AdSim takes a fundamentally different approach:
+Traditional tools predict marketing performance by plugging numbers into statistical models. AdSim currently takes a hybrid approach:
 
-1. **Generate User Agents** — Create hundreds of AI agents representing real platform users (Xiaohongshu users, TikTok users, etc.), each with unique demographics, interests, and behavior patterns
-2. **Simulate Ad Delivery** — Place your actual ad creatives into agents' feeds and let each agent independently decide: Do I notice this? Do I click? Do I buy?
-3. **Emerge, Don't Calculate** — CTR, CVR, CPA and other metrics emerge naturally from aggregated agent behavior, not from industry averages
-4. **Explain the "Why"** — Interview any agent to understand their decision: "Why didn't you convert?" — "The price exceeded my budget for skincare products"
+1. **Generate User Agents** — Create AI agents representing platform users, each with distinct demographics, interests, and behavior patterns
+2. **Simulate Placement Reactions** — Use creative descriptions and market context to simulate attention, click, and conversion decisions
+3. **Separate Signals from Estimates** — Behavioral signals come from simulation, while business metrics such as CPA are estimated with benchmark support
+4. **Explain the "Why"** — Interview any agent to understand their decision path and blocking factors
 
 ## Architecture
 
@@ -29,25 +29,30 @@ Traditional tools predict marketing performance by plugging numbers into statist
 │  └────────────┘  └─────────────┘  └──────────────┘ │
 │                                                     │
 │  Agent Generator:  LLM-driven persona creation      │
-│  Platform Simulator: Feed simulation per channel    │
-│  Campaign Orchestrator: Multi-channel coordination  │
+│  Platform Simulator: Placement-first simulation     │
+│  Campaign Orchestrator: Incremental roadmap         │
 ├─────────────────────────────────────────────────────┤
 │                   Data Layer                         │
 │  ┌────────────┐  ┌─────────────┐  ┌──────────────┐ │
 │  │  Industry   │  │  Ad Library │  │  User        │ │
 │  │  Benchmarks │  │  (optional) │  │  Data (opt.) │ │
 │  └────────────┘  └─────────────┘  └──────────────┘ │
-│                 MongoDB / Redis                      │
+│         MongoDB (active) / Redis (reserved)         │
 └─────────────────────────────────────────────────────┘
 ```
 
-## Key Features
+## Current Features
 
-- **Campaign Evaluation** — Input your plan, get multi-dimensional effectiveness predictions with full reasoning chains
-- **Plan Comparison** — Compare Plan A vs Plan B side by side with simulated results
-- **Optimal Recommendation** — Let the system recommend the best budget allocation
+- **Structured Plan Evaluation** — Input your plan and get simulated behavioral signals with reasoning chains
+- **Placement-Level Insight Report** — View funnel metrics, segment differences, and drop-off reasons
 - **Agent Interview** — Drill into any agent's decision to understand *why*
-- **Post-Campaign Validation** — Feed back actual results to measure prediction accuracy
+- **Market Context Inputs** — Include competitors, brand awareness, and campaign goal in the plan
+
+## In Progress
+
+- **Multi-placement orchestration** — Evaluate multiple placements as a coordinated campaign rather than a single placement
+- **Optimization recommendations** — Generate and validate candidate improvements against the same cohort
+- **Post-campaign validation** — Feed back actual results to calibrate future estimates
 
 ## Tech Stack
 

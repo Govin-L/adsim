@@ -11,6 +11,11 @@ data class SimulationResults(
     val topInsights: List<InsightSummary>? = null
 )
 
+/**
+ * 当前版本的 metrics 混合了两类口径：
+ * 1. attention / ctr / cvr / overallConversionRate：来自 Agent 行为仿真的 simulated signals
+ * 2. estimatedCPA：基于预算、placement 配置和行业基准推导出的 estimated business metric
+ */
 data class Metrics(
     val attentionRate: Double,
     val ctr: Double,

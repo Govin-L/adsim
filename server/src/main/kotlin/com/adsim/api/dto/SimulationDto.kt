@@ -4,7 +4,8 @@ import jakarta.validation.constraints.NotBlank
 
 // Natural language input — the primary way to create simulations
 data class ParsePlanRequest(
-    @field:NotBlank val content: String
+    @field:NotBlank val content: String,
+    val currentPlan: com.adsim.model.SimulationInput? = null
 )
 
 // Direct structured input — advanced mode / confirmation after parse
@@ -15,7 +16,9 @@ data class CreateSimulationRequest(
 )
 
 data class ParsePlanResponse(
-    val input: com.adsim.model.SimulationInput,
+    val mergedPlan: com.adsim.model.SimulationInput,
+    val changedFields: List<String> = emptyList(),
+    val warnings: List<String> = emptyList(),
     val missingFields: List<String>
 )
 

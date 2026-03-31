@@ -35,9 +35,14 @@ class SimulationController(
     @PostMapping("/parse")
     fun parsePlan(@Valid @RequestBody request: ParsePlanRequest, httpRequest: HttpServletRequest): ParsePlanResponse {
         val model = llmRequestConfig.resolve(httpRequest)
-        val input = planParser.parse(request.content, model)
-        val missing = planParser.findMissingFields(input)
-        return ParsePlanResponse(input, missing)
+        val compiled = planParser.compile(request.content, request.currentPlan, model)
+        val missing = planParser.findMissingFields(compiled.mergedPlan)
+        return ParsePlanResponse(
+            mergedPlan = compiled.mergedPlan,
+            changedFields = compiled.changedFields,
+            warnings = compiled.warnings,
+            missingFields = missing
+        )
     }
 
     @PostMapping
