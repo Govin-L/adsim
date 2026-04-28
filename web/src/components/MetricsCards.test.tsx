@@ -6,11 +6,16 @@ describe('MetricsCards', () => {
   it('按模拟信号和业务估算拆分展示指标口径', () => {
     render(
       <MetricsCards
-        metrics={{
+        simulatedMetrics={{
           attentionRate: 0.51,
           ctr: 0.27,
           cvr: 0.19,
           overallConversionRate: 0.1,
+        }}
+        estimatedMetrics={{
+          estimatedImpressions: 100000,
+          estimatedViewers: 50000,
+          estimatedConversions: 5000,
           estimatedCPA: 128,
         }}
       />,

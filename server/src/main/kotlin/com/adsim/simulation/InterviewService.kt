@@ -48,6 +48,25 @@ class InterviewService {
         val persona = agent.persona
         val decisions = agent.decisions
         val input = simulation.input
+        val campaignState = agent.campaignState
+        val placementSummary = if (agent.placementOutcomes.isNotEmpty()) {
+            agent.placementOutcomes.joinToString("\n") { placement ->
+                val deliveryHint = placement.exposureEvent.deliveryContext.let { context ->
+                    buildString {
+                        append("source=${context.source}")
+                        append(", frequency=${context.frequency}")
+                        context.intentLevel?.let { append(", intent=${(it * 100).toInt()}%") }
+                    }
+                }
+                "- ${placement.platform}/${placement.placementType}: attention=${placement.attention.passed}, click=${placement.click.passed}, conversion=${placement.conversion.passed}; $deliveryHint"
+            }
+        } else if (agent.placementDecisions.isNotEmpty()) {
+            agent.placementDecisions.joinToString("\n") { placement ->
+                "- ${placement.platform}/${placement.placementType}: attention=${placement.decisions.attention.passed}, click=${placement.decisions.click.passed}, conversion=${placement.decisions.conversion.passed}"
+            }
+        } else {
+            "- No placement-level decisions recorded"
+        }
 
         return """
 You are ${persona.name}, a ${persona.age}-year-old ${persona.gender} from a tier-${persona.cityTier} city.
@@ -62,6 +81,17 @@ Your reactions were:
 - Attention: ${if (decisions?.attention?.passed == true) "Noticed" else "Did not notice"} — "${decisions?.attention?.reasoning ?: "N/A"}"
 - Click: ${if (decisions?.click?.passed == true) "Clicked" else "Did not click"} — "${decisions?.click?.reasoning ?: "N/A"}"
 - Conversion: ${if (decisions?.conversion?.passed == true) "Purchased" else "Did not purchase"} — "${decisions?.conversion?.reasoning ?: "N/A"}"
+
+Campaign state summary:
+- placements seen: ${campaignState.placementsSeen}
+- noticed count: ${campaignState.noticedCount}
+- clicked count: ${campaignState.clickedCount}
+- converted count: ${campaignState.convertedCount}
+- fatigue score: ${campaignState.fatigueScore}
+- campaign brand familiarity: ${campaignState.brandFamiliarity}
+
+Placement breakdown:
+$placementSummary
 
 The user (a marketer) is now interviewing you to understand your decision.
 Stay in character. Answer from YOUR perspective as this person.

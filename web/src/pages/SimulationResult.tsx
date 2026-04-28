@@ -7,6 +7,13 @@ import FunnelChart from '@/components/FunnelChart'
 import MetricsCards from '@/components/MetricsCards'
 import DropOffReasons from '@/components/DropOffReasons'
 import InsightsBanner from '@/components/InsightsBanner'
+import PlacementResults from '@/components/PlacementResults'
+import StageBlockersCard from '@/components/StageBlockersCard'
+import RecommendationsCard from '@/components/RecommendationsCard'
+import CalibrationCard from '@/components/CalibrationCard'
+import CalibrationFormCard from '@/components/CalibrationFormCard'
+import SimulationQualityCard from '@/components/SimulationQualityCard'
+import UtilizationCard from '@/components/UtilizationCard'
 import SegmentAnalysis from '@/components/SegmentAnalysis'
 import LanguageSwitch from '@/components/LanguageSwitch'
 import { Button } from '@/components/ui/button'
@@ -58,9 +65,9 @@ export default function SimulationResult() {
           api.getSimulation(id).then(sim => {
             if (sim) {
               setSimulation(sim)
-              if (sim.status === 'COMPLETED' || sim.status === 'FAILED') {
+              if (sim.status === 'COMPLETED' || sim.status === 'COMPLETED_WITH_WARNINGS' || sim.status === 'FAILED') {
                 done = true
-                if (sim.status === 'COMPLETED') api.getAgents(id).then(setAgents)
+                if (sim.status === 'COMPLETED' || sim.status === 'COMPLETED_WITH_WARNINGS') api.getAgents(id).then(setAgents)
                 return
               }
             }
@@ -75,7 +82,7 @@ export default function SimulationResult() {
   }, [id, t])
 
   useEffect(() => {
-    if (simulation?.status === 'COMPLETED' && id && agents.length === 0) {
+    if ((simulation?.status === 'COMPLETED' || simulation?.status === 'COMPLETED_WITH_WARNINGS') && id && agents.length === 0) {
       api.getAgents(id).then(setAgents)
     }
   }, [simulation?.status, id, agents.length])
@@ -214,12 +221,37 @@ export default function SimulationResult() {
         )}
 
         {/* Results */}
-        {simulation.status === 'COMPLETED' && simulation.results && (
+        {(simulation.status === 'COMPLETED' || simulation.status === 'COMPLETED_WITH_WARNINGS') && simulation.results && (
           <>
+            {simulation.results.quality && (
+              <SimulationQualityCard quality={simulation.results.quality} />
+            )}
+            {simulation.results.utilization && (
+              <UtilizationCard utilization={simulation.results.utilization} />
+            )}
             {simulation.results.topInsights && simulation.results.topInsights.length > 0 && (
               <InsightsBanner insights={simulation.results.topInsights} />
             )}
-            <MetricsCards metrics={simulation.results.metrics} />
+            {simulation.results.stageBlockers && simulation.results.stageBlockers.length > 0 && (
+              <StageBlockersCard blockers={simulation.results.stageBlockers} />
+            )}
+            {simulation.results.recommendations && simulation.results.recommendations.length > 0 && (
+              <RecommendationsCard recommendations={simulation.results.recommendations} />
+            )}
+            {simulation.results.placementResults && simulation.results.placementResults.length > 0 && (
+              <CalibrationFormCard simulation={simulation} onUpdated={setSimulation} />
+            )}
+            {simulation.results.calibration && (
+              <CalibrationCard calibration={simulation.results.calibration} />
+            )}
+            <MetricsCards
+              metrics={simulation.results.metrics}
+              simulatedMetrics={simulation.results.simulatedMetrics}
+              estimatedMetrics={simulation.results.estimatedMetrics}
+            />
+            {simulation.results.placementResults && simulation.results.placementResults.length > 0 && (
+              <PlacementResults placementResults={simulation.results.placementResults} />
+            )}
             <FunnelChart funnel={simulation.results.funnel} />
             {simulation.results.segmentInsights && simulation.results.segmentInsights.length > 0 && (
               <SegmentAnalysis segments={simulation.results.segmentInsights} />
@@ -299,6 +331,7 @@ function StatusBadge({ status, t }: { status: string; t: (key: string) => string
     SIMULATING: 'bg-teal-light text-teal',
     AGGREGATING: 'bg-purple-50 text-purple-600',
     COMPLETED: 'bg-success-light text-success',
+    COMPLETED_WITH_WARNINGS: 'bg-amber/10 text-amber border-amber/30',
     FAILED: 'bg-error-light text-error',
   }
   return (

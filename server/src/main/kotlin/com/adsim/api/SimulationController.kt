@@ -8,6 +8,7 @@ import com.adsim.model.Simulation
 import com.adsim.simulation.SimulationService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
+import org.slf4j.LoggerFactory
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -20,6 +21,7 @@ class SimulationController(
     private val planParser: PlanParser,
     private val llmRequestConfig: LlmRequestConfig
 ) {
+    private val logger = LoggerFactory.getLogger(SimulationController::class.java)
 
     @PostMapping("/verify-llm")
     fun verifyLlm(httpRequest: HttpServletRequest): Map<String, Any> {
@@ -28,6 +30,7 @@ class SimulationController(
             val reply = model.chat("Reply with a json object: {\"status\": \"ok\"}")
             mapOf("success" to true, "reply" to reply)
         } catch (e: Exception) {
+            logger.warn("LLM verification failed for baseUrl={} model={}", httpRequest.getHeader("X-LLM-Base-Url"), httpRequest.getHeader("X-LLM-Model"), e)
             mapOf("success" to false, "error" to (e.message ?: "Unknown error"))
         }
     }
@@ -85,6 +88,16 @@ class SimulationController(
     ): ResponseEntity<InterviewResponse> {
         val model = llmRequestConfig.resolve(httpRequest)
         return simulationService.interview(id, agentId, request, model)
+            ?.let { ResponseEntity.ok(it) }
+            ?: ResponseEntity.notFound().build()
+    }
+
+    @PostMapping("/{id}/calibration")
+    fun updateCalibration(
+        @PathVariable id: String,
+        @RequestBody request: UpdateCalibrationRequest
+    ): ResponseEntity<Simulation> {
+        return simulationService.updateCalibration(id, request)
             ?.let { ResponseEntity.ok(it) }
             ?: ResponseEntity.notFound().build()
     }

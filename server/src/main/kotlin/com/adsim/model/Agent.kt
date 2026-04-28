@@ -11,7 +11,44 @@ data class Agent(
     @Indexed
     val simulationId: String,
     val persona: Persona,
-    val decisions: Decisions? = null
+    val decisions: Decisions? = null,
+    val placementDecisions: List<PlacementDecisions> = emptyList(),
+    val placementOutcomes: List<PlacementOutcome> = emptyList(),
+    val campaignState: AgentCampaignState = AgentCampaignState()
+)
+
+data class PlacementDecisions(
+    val placementIndex: Int,
+    val platform: String,
+    val placementType: PlacementType,
+    val decisions: Decisions,
+    val exposureEvent: ExposureEvent? = null
+)
+
+data class PlacementOutcome(
+    val placementIndex: Int,
+    val platform: String,
+    val placementType: PlacementType,
+    val exposureEvent: ExposureEvent,
+    val attention: StageDecision,
+    val click: StageDecision,
+    val conversion: StageDecision
+) {
+    val decisions: Decisions
+        get() = Decisions(
+            attention = attention,
+            click = click,
+            conversion = conversion
+        )
+}
+
+data class AgentCampaignState(
+    val placementsSeen: Int = 0,
+    val noticedCount: Int = 0,
+    val clickedCount: Int = 0,
+    val convertedCount: Int = 0,
+    val fatigueScore: Int = 0,
+    val brandFamiliarity: String = "never_heard"
 )
 
 data class ConsumerContext(
@@ -63,5 +100,13 @@ data class StageDecision(
     val passed: Boolean,
     val reasoning: String,
     val factors: List<String> = emptyList(),
-    val score: Int = 0  // keep for backward compat
+    val score: Int = 0,  // keep for backward compat
+    val likelihoodBand: LikelihoodBand? = null,
+    val probability: Double? = null,
+    val positiveFactors: List<String> = emptyList(),
+    val negativeFactors: List<String> = emptyList()
 )
+
+enum class LikelihoodBand {
+    VERY_LOW, LOW, MEDIUM, HIGH, VERY_HIGH
+}

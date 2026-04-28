@@ -31,8 +31,8 @@ class AgentGenerator(
         concurrency: Int = 2,
         onProgress: (generated: Int, total: Int) -> Unit = { _, _ -> }
     ): List<Agent> {
-        val platform = input.adPlacements.firstOrNull()?.platform ?: "xiaohongshu"
-        logger.info("Generating {} agents for platform: {}, concurrency: {}", count, platform, concurrency)
+        val platforms = input.adPlacements.map { it.platform }.distinct().ifEmpty { listOf("xiaohongshu") }
+        logger.info("Generating {} agents for platforms: {}, concurrency: {}", count, platforms.joinToString(", "), concurrency)
 
         val batchSize = config.agentBatchSize
         val batches = (count + batchSize - 1) / batchSize
@@ -61,9 +61,9 @@ class AgentGenerator(
     }
 
     private fun generateBatch(input: SimulationInput, batchSize: Int, batchIndex: Int, totalBatches: Int, chatModel: ChatModel): List<Agent> {
-        val platform = input.adPlacements.firstOrNull()?.platform ?: "xiaohongshu"
-        val systemPrompt = buildSystemPrompt(platform)
-        val userPrompt = buildUserPrompt(input, platform, batchSize, batchIndex, totalBatches)
+        val platforms = input.adPlacements.map { it.platform }.distinct().ifEmpty { listOf("xiaohongshu") }
+        val systemPrompt = buildSystemPrompt(platforms)
+        val userPrompt = buildUserPrompt(input, platforms, batchSize, batchIndex, totalBatches)
 
         val response = chatModel.chat(
             ChatRequest.builder()
@@ -75,10 +75,11 @@ class AgentGenerator(
         return parseAgents(content)
     }
 
-    private fun buildSystemPrompt(platform: String): String {
+    private fun buildSystemPrompt(platforms: List<String>): String {
+        val platformSummary = platforms.joinToString(", ")
         return """
 You are a user persona generator for marketing simulation.
-You generate realistic, diverse user personas for the $platform platform.
+You generate realistic, diverse user personas for the following advertising environment: $platformSummary.
 
 Each persona must be unique with distinct demographics, interests, and behaviors.
 Include users who would AND would NOT be interested in the advertised product.
@@ -99,8 +100,9 @@ Output valid JSON only.
         }
     }
 
-    private fun buildUserPrompt(input: SimulationInput, platform: String, batchSize: Int, batchIndex: Int, totalBatches: Int): String {
+    private fun buildUserPrompt(input: SimulationInput, platforms: List<String>, batchSize: Int, batchIndex: Int, totalBatches: Int): String {
         val ageRange = input.targetAudience.ageRange
+        val platformSummary = platforms.joinToString(", ")
         val competitorSection = if (input.competitors.isNotEmpty()) {
             val competitorList = input.competitors.joinToString("\n") { "  - ${it.brandName} (¥${it.price}${if (it.positioning.isNotBlank()) ", ${it.positioning}" else ""})" }
             """
@@ -127,7 +129,7 @@ About 50% of agents should have currentBrand=null (not using similar products), 
         }
 
         return """
-Generate $batchSize unique $platform user personas.
+Generate $batchSize unique user personas for this multi-placement marketing simulation.
 
 This is batch $batchIndex of $totalBatches. Ensure diversity across batches:
 - Batch focus: vary age groups, income levels, city tiers, and interests
@@ -136,7 +138,7 @@ This is batch $batchIndex of $totalBatches. Ensure diversity across batches:
 - Each age group (18-24, 25-30, 31-40, 40+) must have at least 15% representation
 ${if (genderDiversity.isNotBlank()) "- $genderDiversity" else ""}
 
-Platform: $platform
+Placements cover platforms: $platformSummary
 Brand: ${input.product.brandName}
 Product: ${input.product.name} (${input.product.category}, ¥${input.product.price})
 Product stage: ${input.product.productStage}

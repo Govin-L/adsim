@@ -200,6 +200,7 @@
       "SIMULATING": "模拟运行中...",
       "AGGREGATING": "聚合结果中...",
       "COMPLETED": "已完成",
+      "COMPLETED_WITH_WARNINGS": "完成但需留意",
       "FAILED": "失败"
     },
     "metrics": {
@@ -251,6 +252,74 @@
       "conversionRate": "转化率",
       "agents": "人"
     },
+    "placements": {
+      "title": "Placement 拆解",
+      "samples": "已模拟样本：{{successful}}/{{total}}"
+    },
+    "blockers": {
+      "title": "关键阻塞因素",
+      "subtitle": "按 factor 聚合后的主要流失来源",
+      "stage": {
+        "attention": "注意阶段",
+        "click": "点击阶段",
+        "conversion": "转化阶段"
+      }
+    },
+    "recommendations": {
+      "title": "优化建议",
+      "appliesTo": "适用环节：",
+      "priority": {
+        "high": "高优先级",
+        "medium": "中优先级",
+        "low": "低优先级"
+      }
+    },
+    "quality": {
+      "title": "样本质量",
+      "warningBadge": "可信度告警",
+      "requestedAgents": "请求 Agent",
+      "generatedAgents": "生成 Agent",
+      "generationSuccessRate": "生成成功率",
+      "sampleSuccessRate": "模拟成功率",
+      "samples": "有效模拟样本：{{simulated}}/{{planned}}",
+      "warning": {
+        "low_generation_success_rate": "Agent 生成成功率低于阈值，当前样本覆盖可能不足。",
+        "low_simulation_success_rate": "Placement 模拟成功率低于阈值，结果更适合看相对趋势而非绝对值。"
+      }
+    },
+    "utilization": {
+      "title": "Agent 利用率",
+      "uniqueAgentsReached": "触达 Agent",
+      "uniqueReachRate": "触达覆盖率",
+      "avgExposures": "人均曝光",
+      "searchEligibleRate": "搜索可进入率",
+      "placement": "Placement {{index}}",
+      "coverageDetail": "触达 {{reached}} 人，eligible {{eligible}} 人，计划曝光 {{planned}} 次"
+    },
+    "calibration": {
+      "title": "真实数据校准",
+      "subtitle": "已回填 {{coverage}} 个 placement 的真实结果",
+      "placement": "Placement {{index}}",
+      "actual": "真实",
+      "simulated": "模拟",
+      "delta": "偏差",
+      "prior": {
+        "title": "当前 prior 护栏",
+        "subtitle": "基于 {{count}} 次校准沉淀的当前收敛基线",
+        "attention": "注意率 prior",
+        "ctr": "CTR prior",
+        "cvr": "CVR prior"
+      },
+      "form": {
+        "title": "回填真实投放数据",
+        "subtitle": "输入各 placement 的真实 CTR / CVR / CPA，用于查看模拟结果与真实结果的偏差。",
+        "submit": "保存校准数据",
+        "saving": "保存中...",
+        "ctrPlaceholder": "CTR %",
+        "cvrPlaceholder": "CVR %",
+        "cpaPlaceholder": "CPA"
+      }
+    },
     "agents": {
       "title": "Agent 列表",
       "showing": "已显示 {{shown}}/{{total}} 个 Agent",
@@ -281,6 +350,7 @@
     "verifying": "验证中...",
     "verifySuccess": "连接成功",
     "verifyFailed": "连接失败",
+    "verifyUnknownError": "未知错误",
     "concurrency": "并发数",
     "concurrencyHint": "同时请求 LLM 的数量，免费额度建议 1-3",
     "notConfigured": "未配置模型",
@@ -301,11 +371,19 @@
       "click": "点击",
       "conversion": "转化"
     },
+    "campaign": {
+      "placementsSeen": "已看 placement",
+      "clickedCount": "点击次数",
+      "fatigueScore": "疲劳分",
+      "placementBreakdown": "Campaign 触点摘要"
+    },
     "placeholder": "向这个 Agent 提问...",
     "send": "发送",
     "thinking": "思考中...",
     "emptyHint": "向这个 Agent 询问关于 TA 决策的任何问题。",
     "emptyExample": "例如：「为什么没有点击？」或「什么情况下你会购买？」",
-    "failed": "采访失败，请重试。"
+    "failed": "采访失败，请重试。",
+    "probabilityUnknown": "未知",
+    "drivers": "关键因素"
   }
 }

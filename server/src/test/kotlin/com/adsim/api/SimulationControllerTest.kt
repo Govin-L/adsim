@@ -1,14 +1,20 @@
 package com.adsim.api
 
 import com.adsim.agent.PlanParser
+import com.adsim.api.dto.CalibrationPlacementRequest
 import com.adsim.api.dto.ParsePlanRequest
+import com.adsim.api.dto.UpdateCalibrationRequest
 import com.adsim.config.LlmRequestConfig
 import com.adsim.model.*
 import com.adsim.simulation.SimulationService
 import com.adsim.support.FakeChatModel
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.chat.request.ChatRequest
+import dev.langchain4j.model.chat.response.ChatResponse
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
+import java.time.Instant
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -56,6 +62,92 @@ class SimulationControllerTest {
             .andExpect(jsonPath("$.missingFields").isArray)
     }
 
+    @Test
+    fun `verify llm returns error message when model call fails`() {
+        val simulationService = Mockito.mock(SimulationService::class.java)
+        val planParser = Mockito.mock(PlanParser::class.java)
+        val failingModel = object : ChatModel {
+            override fun doChat(chatRequest: ChatRequest): ChatResponse {
+                throw IllegalStateException("404 page not found")
+            }
+        }
+        val llmRequestConfig = LlmRequestConfig(failingModel)
+
+        val controller = SimulationController(simulationService, planParser, llmRequestConfig)
+        val mockMvc = MockMvcBuilders.standaloneSetup(controller).build()
+
+        mockMvc.perform(
+            post("/api/simulations/verify-llm")
+                .header("X-LLM-Base-Url", "http://127.0.0.1:8317")
+                .header("X-LLM-Model", "gpt-5.4")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.success").value(false))
+            .andExpect(jsonPath("$.error").value("404 page not found"))
+    }
+
+    @Test
+    fun `calibration endpoint returns updated simulation`() {
+        val simulationService = Mockito.mock(SimulationService::class.java)
+        val planParser = Mockito.mock(PlanParser::class.java)
+        val chatModel = FakeChatModel(emptyList())
+        val llmRequestConfig = LlmRequestConfig(chatModel)
+        val simulation = completedSimulation().copy(
+            results = completedSimulation().results?.copy(
+                calibration = CalibrationResult(
+                    placements = listOf(
+                        CalibrationPlacementResult(
+                            placementIndex = 0,
+                            actualMetrics = ActualPerformanceMetrics(ctr = 0.08, cvr = 0.03, cpa = 120.0),
+                            simulatedMetrics = SimulatedFunnelMetrics(0.6, 0.05, 0.02, 0.01),
+                            prior = PlacementPriorSnapshot(
+                                baseAttention = 0.6,
+                                baseClick = 0.08,
+                                baseConversion = 0.03,
+                                calibrationCount = 1
+                            ),
+                            deltas = CalibrationDelta(ctrDelta = 0.03, cvrDelta = 0.01, cpaDelta = -30.0)
+                        )
+                    ),
+                    summary = CalibrationSummary(
+                        coverage = 1,
+                        averageCtrDelta = 0.03,
+                        averageCvrDelta = 0.01,
+                        averageCpaDelta = -30.0
+                    )
+                )
+            )
+        )
+
+        val calibrationRequest = UpdateCalibrationRequest(
+            placements = listOf(
+                CalibrationPlacementRequest(
+                    placementIndex = 0,
+                    ctr = 0.08,
+                    cvr = 0.03,
+                    cpa = 120.0
+                )
+            )
+        )
+
+        Mockito.`when`(simulationService.updateCalibration("sim-1", calibrationRequest))
+            .thenReturn(simulation)
+
+        val controller = SimulationController(simulationService, planParser, llmRequestConfig)
+        val mockMvc = MockMvcBuilders.standaloneSetup(controller).build()
+
+        mockMvc.perform(
+            post("/api/simulations/sim-1/calibration")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    objectMapper.writeValueAsString(calibrationRequest)
+                )
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.results.calibration.summary.coverage").value(1))
+            .andExpect(jsonPath("$.results.calibration.placements[0].deltas.ctrDelta").value(0.03))
+    }
+
     private fun basePlan(): SimulationInput {
         return SimulationInput(
             product = Product(
@@ -87,6 +179,48 @@ class SimulationControllerTest {
             competitors = listOf(CompetitorInfo("OLAY", 259.0, "抗老精华")),
             brandAwareness = BrandAwareness.EMERGING,
             campaignGoal = CampaignGoal.ACQUISITION
+        )
+    }
+
+    private fun completedSimulation(): Simulation {
+        val placement = basePlan().adPlacements.first()
+        return Simulation(
+            id = "sim-1",
+            status = SimulationStatus.COMPLETED,
+            input = basePlan(),
+            results = SimulationResults(
+                totalAgents = 20,
+                successfulAgents = 20,
+                metrics = Metrics(0.6, 0.05, 0.02, 0.01, 150.0),
+                simulatedMetrics = SimulatedFunnelMetrics(0.6, 0.05, 0.02, 0.01),
+                estimatedMetrics = EstimatedBusinessMetrics(2500000.0, 1250000.0, 12500.0, 150.0),
+                funnel = Funnel(
+                    exposure = FunnelStage(20, 1.0),
+                    attention = FunnelStage(12, 0.6),
+                    click = FunnelStage(1, 0.05),
+                    conversion = FunnelStage(0, 0.02)
+                ),
+                dropOffReasons = DropOffReasons(emptyList(), emptyList()),
+                placementResults = listOf(
+                    PlacementResult(
+                        placementIndex = 0,
+                        placement = placement,
+                        totalAgents = 20,
+                        successfulAgents = 20,
+                        metrics = Metrics(0.6, 0.05, 0.02, 0.01, 150.0),
+                        simulatedMetrics = SimulatedFunnelMetrics(0.6, 0.05, 0.02, 0.01),
+                        estimatedMetrics = EstimatedBusinessMetrics(2500000.0, 1250000.0, 12500.0, 150.0),
+                        funnel = Funnel(
+                            exposure = FunnelStage(20, 1.0),
+                            attention = FunnelStage(12, 0.6),
+                            click = FunnelStage(1, 0.05),
+                            conversion = FunnelStage(0, 0.02)
+                        ),
+                        dropOffReasons = DropOffReasons(emptyList(), emptyList())
+                    )
+                )
+            ),
+            createdAt = Instant.now()
         )
     }
 }

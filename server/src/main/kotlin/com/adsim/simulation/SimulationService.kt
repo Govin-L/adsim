@@ -1,9 +1,11 @@
 package com.adsim.simulation
 
 import com.adsim.agent.AgentGenerator
+import com.adsim.api.dto.CalibrationPlacementRequest
 import com.adsim.api.dto.CreateSimulationRequest
 import com.adsim.api.dto.InterviewRequest
 import com.adsim.api.dto.InterviewResponse
+import com.adsim.api.dto.UpdateCalibrationRequest
 import com.adsim.model.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,8 +22,11 @@ class SimulationService(
     private val agentRepository: AgentRepository,
     private val agentGenerator: AgentGenerator,
     private val simulationEngine: SimulationEngine,
+    private val deliveryPlanner: DeliveryPlanner,
     private val resultAggregator: ResultAggregator,
+    private val simulationQualityEvaluator: SimulationQualityEvaluator,
     private val interviewService: InterviewService,
+    private val priorCalibrationService: PriorCalibrationService,
     private val config: com.adsim.config.SimulationConfig
 ) {
     private val logger = LoggerFactory.getLogger(SimulationService::class.java)
@@ -84,6 +89,19 @@ class SimulationService(
         return emitter
     }
 
+    fun updateCalibration(simulationId: String, request: UpdateCalibrationRequest): Simulation? {
+        val simulation = get(simulationId) ?: return null
+        val results = simulation.results ?: return simulation
+        if (simulation.status != SimulationStatus.COMPLETED && simulation.status != SimulationStatus.COMPLETED_WITH_WARNINGS) {
+            return simulation
+        }
+
+        val calibration = buildCalibration(simulation, results, request.placements)
+        syncPlacementPriors(simulation, results, calibration)
+        val updated = simulation.copy(results = results.copy(calibration = calibration))
+        return simulationRepository.save(updated)
+    }
+
     private suspend fun runSimulation(simulationId: String, agentCount: Int, chatModel: dev.langchain4j.model.chat.ChatModel, concurrency: Int? = null) {
         try {
             val simulation = get(simulationId) ?: return
@@ -100,14 +118,37 @@ class SimulationService(
                 agents.map { it.copy(simulationId = simulationId) }
             )
             logger.info("[{}] Phase 1 done: {} agents generated in {}s", simulationId, savedAgents.size, (System.currentTimeMillis() - startTime) / 1000)
-            updateProgress(simulationId, agentCount, 0)
+            if (savedAgents.isEmpty()) {
+                markFailed(simulationId, "No agents were generated successfully.")
+                return
+            }
+            val deliveryPlan = deliveryPlanner.plan(
+                savedAgents,
+                simulation.input.adPlacements,
+                simulation.input.product.category
+            )
+            val plannedSimulationSamples = deliveryPlan.plannedSamples
+            updateProgress(simulationId, plannedSimulationSamples, 0)
 
             // Phase 2: Run simulation
             val phase2Start = System.currentTimeMillis()
             updateStatus(simulationId, SimulationStatus.SIMULATING)
-            logger.info("[{}] Phase 2: Simulating {} agents, concurrency: {}", simulationId, savedAgents.size, effectiveConcurrency)
-            simulationEngine.run(simulation.input, savedAgents, chatModel, effectiveConcurrency) { completed ->
-                updateProgress(simulationId, agentCount, completed)
+            logger.info(
+                "[{}] Phase 2: Simulating {} agents across {} planned exposures ({} placements), concurrency: {}",
+                simulationId,
+                savedAgents.size,
+                plannedSimulationSamples,
+                simulation.input.adPlacements.size,
+                effectiveConcurrency
+            )
+            simulationEngine.run(
+                input = simulation.input,
+                agents = savedAgents,
+                chatModel = chatModel,
+                concurrency = effectiveConcurrency,
+                exposureEvents = deliveryPlan.exposureEvents
+            ) { completed ->
+                updateProgress(simulationId, plannedSimulationSamples, completed)
             }
             logger.info("[{}] Phase 2 done in {}s", simulationId, (System.currentTimeMillis() - phase2Start) / 1000)
 
@@ -116,25 +157,41 @@ class SimulationService(
             val completedAgents = agentRepository.findBySimulationId(simulationId)
             val withDecisions = completedAgents.count { it.decisions != null }
             logger.info("[{}] Phase 3: Aggregating, {}/{} agents have decisions", simulationId, withDecisions, completedAgents.size)
-            val results = resultAggregator.aggregate(completedAgents, simulation.input.totalBudget, simulation.input.adPlacements, chatModel)
+            val aggregatedResults = resultAggregator.aggregate(
+                agents = completedAgents,
+                budget = simulation.input.totalBudget,
+                placements = simulation.input.adPlacements,
+                chatModel = chatModel,
+                deliveryPlan = deliveryPlan
+            )
+            val qualityAssessment = simulationQualityEvaluator.evaluate(
+                requestedAgents = agentCount,
+                generatedAgents = savedAgents.size,
+                agents = completedAgents,
+                plannedSamples = plannedSimulationSamples,
+                minSuccessRate = config.minSuccessRate,
+                utilization = aggregatedResults.utilization
+            )
+            if (qualityAssessment.status == SimulationStatus.FAILED) {
+                markFailed(simulationId, qualityAssessment.errorMessage ?: "Simulation quality check failed.")
+                return
+            }
+            val results = aggregatedResults.copy(quality = qualityAssessment.quality)
 
             // Complete
             simulationRepository.save(
                 simulation.copy(
-                    status = SimulationStatus.COMPLETED,
+                    status = qualityAssessment.status,
                     results = results,
                     completedAt = Instant.now()
                 )
             )
-            emitProgress(simulationId, agentCount, agentCount, "completed")
+            emitProgress(simulationId, plannedSimulationSamples, plannedSimulationSamples, "completed")
             logger.info("Simulation completed, id: {}", simulationId)
         } catch (e: Exception) {
             logger.error("Simulation failed, id: {}", simulationId, e)
             val errorMsg = formatErrorMessage(e)
-            simulationRepository.findById(simulationId).ifPresent {
-                simulationRepository.save(it.copy(status = SimulationStatus.FAILED, errorMessage = errorMsg))
-            }
-            emitProgress(simulationId, 0, 0, "failed", errorMsg)
+            markFailed(simulationId, errorMsg)
         }
     }
 
@@ -149,6 +206,110 @@ class SimulationService(
             simulationRepository.save(it.copy(progress = Progress(total, completed)))
         }
         emitProgress(simulationId, total, completed, "running")
+    }
+
+    private fun markFailed(simulationId: String, errorMessage: String) {
+        simulationRepository.findById(simulationId).ifPresent {
+            simulationRepository.save(it.copy(status = SimulationStatus.FAILED, errorMessage = errorMessage))
+        }
+        emitProgress(simulationId, 0, 0, "failed", errorMessage)
+    }
+
+    private fun buildCalibration(
+        simulation: Simulation,
+        results: SimulationResults,
+        requests: List<CalibrationPlacementRequest>
+    ): CalibrationResult {
+        val placementLookup = results.placementResults.associateBy { it.placementIndex }
+        val calibratedPlacements = requests.mapNotNull { request ->
+            val simulated = placementLookup[request.placementIndex] ?: return@mapNotNull null
+            val actualMetrics = ActualPerformanceMetrics(
+                ctr = request.ctr,
+                cvr = request.cvr,
+                cpa = request.cpa,
+                impressions = request.impressions,
+                conversions = request.conversions
+            )
+            val simulatedFunnelMetrics = simulated.simulatedMetrics ?: SimulatedFunnelMetrics(
+                attentionRate = simulated.metrics.attentionRate,
+                ctr = simulated.metrics.ctr,
+                cvr = simulated.metrics.cvr,
+                overallConversionRate = simulated.metrics.overallConversionRate
+            )
+            val estimatedBusinessMetrics = simulated.estimatedMetrics ?: EstimatedBusinessMetrics(
+                estimatedImpressions = 0.0,
+                estimatedViewers = 0.0,
+                estimatedConversions = 0.0,
+                estimatedCPA = simulated.metrics.estimatedCPA
+            )
+            CalibrationPlacementResult(
+                placementIndex = request.placementIndex,
+                actualMetrics = actualMetrics,
+                simulatedMetrics = simulatedFunnelMetrics,
+                estimatedMetrics = estimatedBusinessMetrics,
+                prior = priorCalibrationService.loadPrior(
+                    simulated.placement.platform,
+                    simulated.placement.placementType,
+                    simulation.input.product.category
+                )?.let(priorCalibrationService::toSnapshot),
+                deltas = CalibrationDelta(
+                    ctrDelta = delta(actualMetrics.ctr, simulatedFunnelMetrics.ctr),
+                    cvrDelta = delta(actualMetrics.cvr, simulatedFunnelMetrics.cvr),
+                    cpaDelta = delta(actualMetrics.cpa, estimatedBusinessMetrics.estimatedCPA)
+                )
+            )
+        }
+
+        return CalibrationResult(
+            placements = calibratedPlacements,
+            summary = CalibrationSummary(
+                coverage = calibratedPlacements.size,
+                averageCtrDelta = averageOf(calibratedPlacements.mapNotNull { it.deltas.ctrDelta }),
+                averageCvrDelta = averageOf(calibratedPlacements.mapNotNull { it.deltas.cvrDelta }),
+                averageCpaDelta = averageOf(calibratedPlacements.mapNotNull { it.deltas.cpaDelta })
+            )
+        )
+    }
+
+    private fun syncPlacementPriors(
+        simulation: Simulation,
+        results: SimulationResults,
+        calibration: CalibrationResult
+    ) {
+        val placementsByIndex = simulation.input.adPlacements.mapIndexed { index, placement ->
+            index to placement
+        }.toMap()
+        val resultByIndex = results.placementResults.associateBy { it.placementIndex }
+
+        calibration.placements.forEach { placementCalibration ->
+            val placement = placementsByIndex[placementCalibration.placementIndex] ?: return@forEach
+            val simulated = resultByIndex[placementCalibration.placementIndex]
+            val simulatedMetrics = simulated?.simulatedMetrics ?: SimulatedFunnelMetrics(
+                attentionRate = simulated?.metrics?.attentionRate ?: 0.0,
+                ctr = simulated?.metrics?.ctr ?: 0.0,
+                cvr = simulated?.metrics?.cvr ?: 0.0,
+                overallConversionRate = simulated?.metrics?.overallConversionRate ?: 0.0
+            )
+            priorCalibrationService.updatePrior(
+                placement = placement,
+                product = simulation.input.product,
+                simulatedAttention = simulatedMetrics.attentionRate,
+                simulatedCtr = simulatedMetrics.ctr,
+                simulatedCvr = simulatedMetrics.cvr,
+                actualCtr = placementCalibration.actualMetrics.ctr,
+                actualCvr = placementCalibration.actualMetrics.cvr
+            )
+        }
+    }
+
+    private fun delta(actual: Double?, simulated: Double?): Double? {
+        if (actual == null || simulated == null) return null
+        return actual - simulated
+    }
+
+    private fun averageOf(values: List<Double>): Double? {
+        if (values.isEmpty()) return null
+        return values.average()
     }
 
     private fun emitProgress(simulationId: String, total: Int, completed: Int, status: String, error: String? = null) {

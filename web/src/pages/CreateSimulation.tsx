@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Sparkles, Plus, X, Send, Loader2, ArrowRight, Package, Target, Megaphone, Clock, CheckCircle2, XCircle, Activity, Building2 } from 'lucide-react'
+import { Sparkles, Plus, X, Send, Loader2, ArrowRight, Package, Target, Megaphone, Clock, CheckCircle2, XCircle, Activity, Building2, AlertCircle } from 'lucide-react'
 import { api, type SimulationInput, type AdPlacement, type CompetitorInfo, type ParsePlanResponse, type Simulation } from '@/api/client'
 import { templates } from '@/data/templates'
 import LanguageSwitch from '@/components/LanguageSwitch'
@@ -262,8 +262,20 @@ export default function CreateSimulation() {
                   </h3>
                   <div className="space-y-2">
                     {history.slice(0, 5).map(sim => {
-                      const StatusIcon = sim.status === 'COMPLETED' ? CheckCircle2 : sim.status === 'FAILED' ? XCircle : Activity
-                      const statusColor = sim.status === 'COMPLETED' ? 'text-emerald-500' : sim.status === 'FAILED' ? 'text-red-500' : 'text-blue-500'
+                      const StatusIcon = sim.status === 'COMPLETED'
+                        ? CheckCircle2
+                        : sim.status === 'COMPLETED_WITH_WARNINGS'
+                          ? AlertCircle
+                          : sim.status === 'FAILED'
+                            ? XCircle
+                            : Activity
+                      const statusColor = sim.status === 'COMPLETED'
+                        ? 'text-emerald-500'
+                        : sim.status === 'COMPLETED_WITH_WARNINGS'
+                          ? 'text-amber'
+                          : sim.status === 'FAILED'
+                            ? 'text-red-500'
+                            : 'text-blue-500'
                       return (
                         <div key={sim.id}
                           className="flex items-center justify-between px-4 py-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"

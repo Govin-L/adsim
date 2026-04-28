@@ -15,12 +15,14 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicInteger
 
 @Component
 class SimulationEngine(
     private val agentRepository: AgentRepository,
-    private val config: SimulationConfig
+    private val config: SimulationConfig,
+    private val priorCalibrationService: PriorCalibrationService
 ) {
     private val logger = LoggerFactory.getLogger(SimulationEngine::class.java)
     private val objectMapper = jacksonObjectMapper()
@@ -31,87 +33,248 @@ class SimulationEngine(
         agents: List<Agent>,
         chatModel: ChatModel,
         concurrency: Int? = null,
+        exposureEvents: List<ExposureEvent>? = null,
         onProgress: (completed: Int) -> Unit
     ) {
         val actualConcurrency = concurrency ?: config.maxConcurrency
-        logger.info("Running simulation for {} agents, concurrency: {}", agents.size, actualConcurrency)
+        val placements = input.adPlacements
+        val plannedExposureEvents = exposureEvents ?: buildLegacyExposureEvents(input, agents)
+        logger.info(
+            "Running simulation for {} agents across {} planned exposures ({} placements), concurrency: {}",
+            agents.size,
+            plannedExposureEvents.size,
+            placements.size,
+            actualConcurrency
+        )
 
+        if (placements.isEmpty()) {
+            agentRepository.saveAll(agents)
+            logger.warn("Simulation input has no placements, skipping decision generation")
+            return
+        }
+
+        if (plannedExposureEvents.isEmpty()) {
+            agentRepository.saveAll(agents)
+            logger.warn("No exposure events planned, skipping decision generation")
+            return
+        }
+
+        val exposureEventsByAgent = plannedExposureEvents.groupBy { it.agentId }
         val semaphore = Semaphore(actualConcurrency)
         val completed = AtomicInteger(0)
 
-        // Call LLM for each agent using staged information disclosure (3 calls per agent)
         val decidedAgents = coroutineScope {
-            agents.map { agent ->
+            agents.mapIndexed { index, agent ->
                 async {
                     semaphore.withPermit {
-                        val decided = simulateAgentStaged(input, agent, chatModel)
-                        onProgress(completed.incrementAndGet())
-                        decided
+                        val agentEvents = exposureEventsByAgent[agentKey(agent, index)].orEmpty()
+                        simulateAgentAcrossPlacements(input, agent, agentEvents, chatModel) {
+                            onProgress(completed.incrementAndGet())
+                        }
                     }
                 }
             }.awaitAll()
         }
 
-        // Save all agents
         agentRepository.saveAll(decidedAgents)
 
-        val withDecisions = decidedAgents.filter { it.decisions != null }
-        val noticed = withDecisions.count { it.decisions!!.attention.passed }
-        val clicked = withDecisions.count { it.decisions!!.click.passed }
-        val converted = withDecisions.count { it.decisions!!.conversion.passed }
-        logger.info("Simulation complete: {} agents, noticed={}, clicked={}, converted={}",
-            agents.size, noticed, clicked, converted)
+        val placementSamples = decidedAgents.flatMap { it.placementDecisions }
+        val noticed = placementSamples.count { it.decisions.attention.passed }
+        val clicked = placementSamples.count { it.decisions.attention.passed && it.decisions.click.passed }
+        val converted = placementSamples.count {
+            it.decisions.attention.passed && it.decisions.click.passed && it.decisions.conversion.passed
+        }
+        logger.info(
+            "Simulation complete: {} agents, exposures={}, noticed={}, clicked={}, converted={}",
+            agents.size,
+            placementSamples.size,
+            noticed,
+            clicked,
+            converted
+        )
+    }
+
+    /**
+     * Run the 3-stage pipeline for each placement and keep the first placement as the
+     * legacy primary decisions field for backward compatibility.
+     */
+    private suspend fun simulateAgentAcrossPlacements(
+        input: SimulationInput,
+        agent: Agent,
+        exposureEvents: List<ExposureEvent>,
+        chatModel: ChatModel,
+        onPlacementCompleted: () -> Unit
+    ): Agent {
+        var campaignState = initialCampaignState(agent)
+        val sortedEvents = exposureEvents.sortedBy { it.sequence }
+        val placementOutcomes = sortedEvents.mapNotNull { event ->
+            val placement = input.adPlacements.getOrNull(event.placementIndex)
+            if (placement == null) {
+                onPlacementCompleted()
+                null
+            } else {
+                try {
+                    val outcome = simulatePlacementStaged(input, placement, agent, campaignState, chatModel, event)
+                    if (outcome != null) {
+                        campaignState = outcome.updatedCampaignState
+                        PlacementOutcome(
+                            placementIndex = event.placementIndex,
+                            platform = placement.platform,
+                            placementType = placement.placementType,
+                            exposureEvent = event,
+                            attention = outcome.decisions.attention,
+                            click = outcome.decisions.click,
+                            conversion = outcome.decisions.conversion
+                        )
+                    } else {
+                        null
+                    }
+                } finally {
+                    onPlacementCompleted()
+                }
+            }
+        }
+        val placementDecisions = placementOutcomes.map { placementOutcome ->
+            PlacementDecisions(
+                placementIndex = placementOutcome.placementIndex,
+                platform = placementOutcome.platform,
+                placementType = placementOutcome.placementType,
+                decisions = placementOutcome.decisions,
+                exposureEvent = placementOutcome.exposureEvent
+            )
+        }
+
+        return agent.copy(
+            decisions = placementOutcomes.firstOrNull()?.decisions,
+            placementDecisions = placementDecisions,
+            placementOutcomes = placementOutcomes,
+            campaignState = campaignState
+        )
     }
 
     /**
      * 3-stage pipeline: each stage is a separate LLM call with only the information
      * visible at that funnel stage. Agents who fail a stage skip subsequent stages.
      */
-    private suspend fun simulateAgentStaged(input: SimulationInput, agent: Agent, chatModel: ChatModel): Agent {
+    private suspend fun simulatePlacementStaged(
+        input: SimulationInput,
+        placement: AdPlacement,
+        agent: Agent,
+        campaignState: AgentCampaignState,
+        chatModel: ChatModel,
+        exposureEvent: ExposureEvent? = null
+    ): PlacementSimulationOutcome? {
         val agentDesc = "${agent.persona.name}(${agent.persona.age}/${agent.persona.gender})"
         val startTime = System.currentTimeMillis()
+        val prior = priorCalibrationService.loadPrior(placement.platform, placement.placementType, input.product.category)
 
-        // Stage 1: Attention (minimal info — thumbnail only, no brand/price/product)
-        val stage1 = callStageWithRetry("attention", agent, chatModel, buildStage1Prompt(input, agent))
-            ?: return agent // all retries failed
+        val stage1 = callStageWithRetry(
+            "attention",
+            agent,
+            chatModel,
+            buildStage1Prompt(input, placement, agent, campaignState, exposureEvent)
+        ) ?: return null
+        val attentionDecision = toStageDecision(stage1, prior?.baseAttention)
 
-        if (!stage1.passed) {
+        if (!attentionDecision.passed) {
             val elapsed = System.currentTimeMillis() - startTime
-            logger.info("Agent {} [{}] decided: attn=false ({}ms)", agent.id, agentDesc, elapsed)
-            return agent.copy(decisions = Decisions(
-                attention = StageDecision(false, stage1.reasoning, stage1.factors),
-                click = StageDecision(false, "没有注意到这条广告", emptyList()),
-                conversion = StageDecision(false, "没有注意到这条广告", emptyList())
-            ))
+            logger.info(
+                "Agent {} [{}] placement {} decided: attn=false ({}ms)",
+                agent.id,
+                agentDesc,
+                placement.placementType,
+                elapsed
+            )
+            return PlacementSimulationOutcome(
+                decisions = Decisions(
+                    attention = attentionDecision,
+                    click = StageDecision(
+                        passed = false,
+                        reasoning = "没有注意到这条广告",
+                        factors = emptyList(),
+                        likelihoodBand = LikelihoodBand.VERY_LOW,
+                        probability = 0.0,
+                        negativeFactors = listOf("no_attention")
+                    ),
+                    conversion = StageDecision(
+                        passed = false,
+                        reasoning = "没有注意到这条广告",
+                        factors = emptyList(),
+                        likelihoodBand = LikelihoodBand.VERY_LOW,
+                        probability = 0.0,
+                        negativeFactors = listOf("no_attention")
+                    )
+                ),
+                updatedCampaignState = nextCampaignState(campaignState, noticed = false, clicked = false, converted = false)
+            )
         }
 
-        // Stage 2: Click (brand + title visible, no price/specs)
-        val stage2 = callStageWithRetry("click", agent, chatModel, buildStage2Prompt(input, agent))
-            ?: return agent
+        val stage2 = callStageWithRetry(
+            "click",
+            agent,
+            chatModel,
+            buildStage2Prompt(input, placement, agent, campaignState, exposureEvent)
+        ) ?: return null
+        val clickDecision = toStageDecision(stage2, prior?.baseClick)
 
-        if (!stage2.passed) {
+        if (!clickDecision.passed) {
             val elapsed = System.currentTimeMillis() - startTime
-            logger.info("Agent {} [{}] decided: attn=true, click=false ({}ms)", agent.id, agentDesc, elapsed)
-            return agent.copy(decisions = Decisions(
-                attention = StageDecision(true, stage1.reasoning, stage1.factors),
-                click = StageDecision(false, stage2.reasoning, stage2.factors),
-                conversion = StageDecision(false, "没有点击广告", emptyList())
-            ))
+            logger.info(
+                "Agent {} [{}] placement {} decided: attn=true, click=false ({}ms)",
+                agent.id,
+                agentDesc,
+                placement.placementType,
+                elapsed
+            )
+            return PlacementSimulationOutcome(
+                decisions = Decisions(
+                    attention = attentionDecision,
+                    click = clickDecision,
+                    conversion = StageDecision(
+                        passed = false,
+                        reasoning = "没有点击广告",
+                        factors = emptyList(),
+                        likelihoodBand = LikelihoodBand.VERY_LOW,
+                        probability = 0.0,
+                        negativeFactors = listOf("no_click")
+                    )
+                ),
+                updatedCampaignState = nextCampaignState(campaignState, noticed = true, clicked = false, converted = false)
+            )
         }
 
-        // Stage 3: Conversion (full product details)
-        val stage3 = callStageWithRetry("conversion", agent, chatModel, buildStage3Prompt(input, agent))
-            ?: return agent
+        val stage3 = callStageWithRetry(
+            "conversion",
+            agent,
+            chatModel,
+            buildStage3Prompt(input, placement, agent, campaignState, exposureEvent)
+        ) ?: return null
+        val conversionDecision = toStageDecision(stage3, prior?.baseConversion)
 
         val elapsed = System.currentTimeMillis() - startTime
-        logger.info("Agent {} [{}] decided: attn=true, click=true, conv={} ({}ms)",
-            agent.id, agentDesc, stage3.passed, elapsed)
+        logger.info(
+            "Agent {} [{}] placement {} decided: attn=true, click=true, conv={} prob={} ({}ms)",
+            agent.id,
+            agentDesc,
+            placement.placementType,
+            conversionDecision.passed,
+            conversionDecision.probability,
+            elapsed
+        )
 
-        return agent.copy(decisions = Decisions(
-            attention = StageDecision(true, stage1.reasoning, stage1.factors),
-            click = StageDecision(true, stage2.reasoning, stage2.factors),
-            conversion = StageDecision(stage3.passed, stage3.reasoning, stage3.factors)
-        ))
+        return PlacementSimulationOutcome(
+            decisions = Decisions(
+                attention = attentionDecision,
+                click = clickDecision,
+                conversion = conversionDecision
+            ),
+            updatedCampaignState = nextCampaignState(
+                campaignState,
+                noticed = attentionDecision.passed,
+                clicked = clickDecision.passed,
+                converted = conversionDecision.passed
+            )
+        )
     }
 
     /**
@@ -153,14 +316,25 @@ class SimulationEngine(
 
     // ── Stage 1: Attention ──────────────────────────────────────────────
 
-    private fun buildStage1Prompt(input: SimulationInput, agent: Agent): List<ChatMessage> {
+    private fun buildStage1Prompt(
+        input: SimulationInput,
+        placement: AdPlacement,
+        agent: Agent,
+        campaignState: AgentCampaignState,
+        exposureEvent: ExposureEvent? = null
+    ): List<ChatMessage> {
         val persona = agent.persona
-        val placement = input.adPlacements.firstOrNull()
-        val platform = placement?.platform ?: "xiaohongshu"
-        val placementType = placement?.placementType ?: PlacementType.INFO_FEED
-        val format = placement?.format ?: CreativeFormat.VIDEO
+        val platform = placement.platform
+        val placementType = placement.placementType
+        val format = placement.format
 
-        val feedItemDesc = buildFeedItemDescription(placementType, format, input.product, placement?.creativeDescription ?: "")
+        val feedItemDesc = buildFeedItemDescription(
+            placementType,
+            format,
+            input.product,
+            placement.creativeDescription,
+            exposureEvent
+        )
 
         val system = """
 You are ${persona.name}, ${persona.age} years old, ${persona.gender}.
@@ -173,10 +347,11 @@ You are browsing $platform, scrolling through your feed. You've already seen 30+
 Your attention is scarce — most content you scroll past in 1-2 seconds.
 You can see the brand and product name on the thumbnail, but you don't know the price or detailed specs.
 This is a quick glance — you decide in 1-2 seconds whether to stop or keep scrolling.
+Campaign context: you've already seen this brand ${campaignState.placementsSeen} times in this simulation, fatigue score ${campaignState.fatigueScore}, brand familiarity ${campaignState.brandFamiliarity}.
 
 Available factor tags:
 Positive: interest_match, creative_appeal, entertainment_value, brand_trust, social_proof
-Negative: no_interest, creative_boring, ad_fatigue, wrong_format, no_brand_trust
+Negative: no_interest, creative_boring, ad_fatigue, wrong_format, no_brand_trust, frequency_overload
 
 Output valid JSON only. Reasoning in Chinese (中文).
         """.trimIndent()
@@ -188,7 +363,7 @@ $feedItemDesc
 Would you stop scrolling and look at this content more closely?
 
 Output JSON:
-{"passed": true/false, "reasoning": "中文理由(1-2句)", "factors": ["tag1"]}
+{"likelihoodBand": "VERY_LOW|LOW|MEDIUM|HIGH|VERY_HIGH", "reasoning": "中文理由(1-2句)", "positiveFactors": ["tag1"], "negativeFactors": ["tag2"]}
         """.trimIndent()
 
         return listOf(SystemMessage.from(system), UserMessage.from(user))
@@ -203,7 +378,8 @@ Output JSON:
         placementType: PlacementType,
         format: CreativeFormat,
         product: Product,
-        creativeDescription: String
+        creativeDescription: String,
+        exposureEvent: ExposureEvent? = null
     ): String {
         val brand = product.brandName
         val productName = product.name
@@ -220,8 +396,12 @@ Output JSON:
                 "【达人推荐】一位博主发布的${formatHint}，封面标题含「${brand} ${productName}」。${if (creativeBrief.isNotBlank()) "内容预览：$creativeBrief" else ""}"
             PlacementType.INFO_FEED ->
                 "【信息流广告】一条${formatHint}广告，品牌「${brand}」，产品「${productName}」，底部有'广告'标签。${if (creativeBrief.isNotBlank()) "广告文案：$creativeBrief" else ""}"
-            PlacementType.SEARCH ->
-                "【搜索结果】你搜索了相关关键词，结果中有一条带'推广'标签的${formatHint}：「${brand} ${productName}」"
+            PlacementType.SEARCH -> {
+                val intentHint = exposureEvent?.deliveryContext?.intentLevel?.let {
+                    "搜索意图强度约 ${(it * 100).toInt()}%"
+                } ?: "你刚产生了相关搜索需求"
+                "【搜索结果】基于当前需求场景，$intentHint，结果中有一条带'推广'标签的${formatHint}：「${brand} ${productName}」"
+            }
             PlacementType.SHORT_VIDEO ->
                 "【短视频】信息流中自动播放的${formatHint}，左下角显示「${brand}」品牌名。${if (creativeBrief.isNotBlank()) "视频内容：$creativeBrief" else ""}"
             PlacementType.HASHTAG_CHALLENGE ->
@@ -237,12 +417,17 @@ Output JSON:
 
     // ── Stage 2: Click ──────────────────────────────────────────────────
 
-    private fun buildStage2Prompt(input: SimulationInput, agent: Agent): List<ChatMessage> {
+    private fun buildStage2Prompt(
+        input: SimulationInput,
+        placement: AdPlacement,
+        agent: Agent,
+        campaignState: AgentCampaignState,
+        exposureEvent: ExposureEvent? = null
+    ): List<ChatMessage> {
         val persona = agent.persona
         val ctx = persona.consumerContext
-        val placement = input.adPlacements.firstOrNull()
-        val platform = placement?.platform ?: "xiaohongshu"
-        val placementType = placement?.placementType ?: PlacementType.INFO_FEED
+        val platform = placement.platform
+        val placementType = placement.placementType
 
         val awarenessLine = if (ctx.brandAwareness != "never_heard") {
             val desc = when (ctx.brandAwareness) {
@@ -265,6 +450,10 @@ Output JSON:
             PlacementType.SHOPPING -> "shopping section product card"
         }
 
+        val intentLine = exposureEvent?.deliveryContext?.intentLevel?.let {
+            "Current intent level for this exposure: ${(it * 100).toInt()}%."
+        } ?: ""
+
         val system = """
 You are ${persona.name}, ${persona.age} years old, ${persona.gender}.
 Income: ${persona.income}, City tier: ${persona.cityTier}
@@ -275,19 +464,21 @@ Price sensitivity: ${persona.consumptionHabits.priceSensitivity}
 Decision speed: ${persona.consumptionHabits.decisionSpeed}
 Brand loyalty: ${persona.consumptionHabits.brandLoyalty}
 You've seen ${ctx.recentAdExposure} similar product ads/promotions this week.
+In this campaign simulation, you've already seen this brand ${campaignState.placementsSeen} times, clicked ${campaignState.clickedCount} times, fatigue score ${campaignState.fatigueScore}.
+$intentLine
 
 You stopped scrolling and are now looking at this content more closely on $platform.
 
 Available factor tags:
 Positive: interest_match, creative_appeal, brand_trust, social_proof, need_match, entertainment_value
-Negative: no_interest, creative_boring, no_brand_trust, ad_fatigue, wrong_format, no_need
+Negative: no_interest, creative_boring, no_brand_trust, ad_fatigue, wrong_format, no_need, frequency_overload
 
 Output valid JSON only. Reasoning in Chinese (中文).
         """.trimIndent()
 
         val user = """
 You can see:
-- Title/headline: "${placement?.creativeDescription ?: input.product.name}"
+- Title/headline: "${placement.creativeDescription.ifBlank { input.product.name }}"
 - Brand: ${input.product.brandName}
 - Content type: $placementDesc$awarenessLine
 
@@ -295,7 +486,7 @@ You still don't know the exact price or detailed product specs.
 Would you tap/click to see the full details?
 
 Output JSON:
-{"passed": true/false, "reasoning": "中文理由(1-2句)", "factors": ["tag1", "tag2"]}
+{"likelihoodBand": "VERY_LOW|LOW|MEDIUM|HIGH|VERY_HIGH", "reasoning": "中文理由(1-2句)", "positiveFactors": ["tag1"], "negativeFactors": ["tag2"]}
         """.trimIndent()
 
         return listOf(SystemMessage.from(system), UserMessage.from(user))
@@ -303,11 +494,16 @@ Output JSON:
 
     // ── Stage 3: Conversion ─────────────────────────────────────────────
 
-    private fun buildStage3Prompt(input: SimulationInput, agent: Agent): List<ChatMessage> {
+    private fun buildStage3Prompt(
+        input: SimulationInput,
+        placement: AdPlacement,
+        agent: Agent,
+        campaignState: AgentCampaignState,
+        exposureEvent: ExposureEvent? = null
+    ): List<ChatMessage> {
         val persona = agent.persona
         val ctx = persona.consumerContext
-        val placement = input.adPlacements.firstOrNull()
-        val platform = placement?.platform ?: "xiaohongshu"
+        val platform = placement.platform
 
         val currentUsage = if (ctx.currentBrand != null) {
             "You currently use: ${ctx.currentBrand}" +
@@ -342,6 +538,10 @@ Output JSON:
             else -> "established product (some reviews available)"
         }
 
+        val intentLine = exposureEvent?.deliveryContext?.intentLevel?.let {
+            "Current intent level for this exposure: ${(it * 100).toInt()}%."
+        } ?: ""
+
         val system = """
 You are ${persona.name}, ${persona.age} years old, ${persona.gender}.
 Income: ${persona.income}, City tier: ${persona.cityTier}
@@ -354,12 +554,14 @@ Brand loyalty: ${persona.consumptionHabits.brandLoyalty}
 Your awareness of "${input.product.brandName}": $awarenessDesc
 $currentUsage
 You've seen ${ctx.recentAdExposure} similar product ads/promotions this week.
+In this campaign simulation, you've already seen this brand ${campaignState.placementsSeen} times and noticed it ${campaignState.noticedCount} times. Fatigue score: ${campaignState.fatigueScore}. Campaign familiarity: ${campaignState.brandFamiliarity}.
+$intentLine
 
 You've clicked through and are now viewing the full product page on $platform.
 
 Available factor tags:
 Positive: interest_match, creative_appeal, price_acceptable, brand_trust, social_proof, urgency, need_match, entertainment_value
-Negative: no_interest, creative_boring, price_too_high, no_brand_trust, no_reviews, no_need, ad_fatigue, wrong_format, competitor_preference, impulse_resist
+Negative: no_interest, creative_boring, price_too_high, no_brand_trust, no_reviews, no_need, ad_fatigue, wrong_format, competitor_preference, impulse_resist, frequency_overload
 
 Output valid JSON only. Reasoning in Chinese (中文).
         """.trimIndent()
@@ -379,7 +581,7 @@ Product details:
 Would you actually purchase this right now?
 
 Output JSON:
-{"passed": true/false, "reasoning": "中文理由(1-2句)", "factors": ["tag1", "tag2"]}
+{"likelihoodBand": "VERY_LOW|LOW|MEDIUM|HIGH|VERY_HIGH", "reasoning": "中文理由(1-2句)", "positiveFactors": ["tag1"], "negativeFactors": ["tag2"]}
         """.trimIndent()
 
         return listOf(SystemMessage.from(system), UserMessage.from(user))
@@ -397,8 +599,121 @@ Output JSON:
     }
 
     private data class DecisionDto(
-        val passed: Boolean,
+        val passed: Boolean? = null,
         val reasoning: String,
-        val factors: List<String> = emptyList()
+        val factors: List<String> = emptyList(),
+        val likelihoodBand: LikelihoodBand? = null,
+        val probability: Double? = null,
+        val positiveFactors: List<String> = emptyList(),
+        val negativeFactors: List<String> = emptyList()
     )
+
+    private data class PlacementSimulationOutcome(
+        val decisions: Decisions,
+        val updatedCampaignState: AgentCampaignState
+    )
+
+    private fun toStageDecision(
+        dto: DecisionDto,
+        priorBaseProbability: Double? = null
+    ): StageDecision {
+        val band = dto.likelihoodBand ?: if (dto.passed == true) LikelihoodBand.HIGH else LikelihoodBand.LOW
+        val rawProbability = (dto.probability ?: sampleProbability(band)).coerceIn(0.0, 1.0)
+        val probability = priorCalibrationService.applyPrior(rawProbability, priorBaseProbability)
+        val passed = dto.passed ?: samplePassed(probability)
+        val positiveFactors = dto.positiveFactors.ifEmpty {
+            if (passed && dto.factors.isNotEmpty()) dto.factors else emptyList()
+        }
+        val negativeFactors = dto.negativeFactors.ifEmpty {
+            if (!passed && dto.factors.isNotEmpty()) dto.factors else emptyList()
+        }
+        val fallbackFactors = if (passed) positiveFactors else negativeFactors
+
+        return StageDecision(
+            passed = passed,
+            reasoning = dto.reasoning,
+            factors = dto.factors.ifEmpty { fallbackFactors },
+            likelihoodBand = band,
+            probability = probability,
+            positiveFactors = positiveFactors,
+            negativeFactors = negativeFactors
+        )
+    }
+
+    private fun sampleProbability(band: LikelihoodBand): Double {
+        val range = when (band) {
+            LikelihoodBand.VERY_LOW -> 0.02..0.12
+            LikelihoodBand.LOW -> 0.12..0.30
+            LikelihoodBand.MEDIUM -> 0.30..0.55
+            LikelihoodBand.HIGH -> 0.55..0.80
+            LikelihoodBand.VERY_HIGH -> 0.80..0.95
+        }
+        return ThreadLocalRandom.current().nextDouble(range.start, range.endInclusive)
+    }
+
+    private fun samplePassed(probability: Double): Boolean {
+        return ThreadLocalRandom.current().nextDouble() < probability
+    }
+
+    private fun buildLegacyExposureEvents(input: SimulationInput, agents: List<Agent>): List<ExposureEvent> {
+        return agents.flatMapIndexed { agentIndex, agent ->
+            input.adPlacements.mapIndexed { placementIndex, placement ->
+                ExposureEvent(
+                    agentId = agentKey(agent, agentIndex),
+                    placementIndex = placementIndex,
+                    sequence = agentIndex * input.adPlacements.size + placementIndex,
+                    deliveryContext = DeliveryContext(
+                        source = "legacy_full_matrix",
+                        frequency = 1,
+                        intentLevel = if (placement.placementType == PlacementType.SEARCH) 1.0 else null,
+                        estimatedCostWeight = 1.0
+                    )
+                )
+            }
+        }
+    }
+
+    private fun agentKey(agent: Agent, agentIndex: Int): String {
+        return agent.id ?: "agent-$agentIndex"
+    }
+
+    private fun initialCampaignState(agent: Agent): AgentCampaignState {
+        return AgentCampaignState(
+            brandFamiliarity = agent.persona.consumerContext.brandAwareness
+        )
+    }
+
+    private fun nextCampaignState(
+        current: AgentCampaignState,
+        noticed: Boolean,
+        clicked: Boolean,
+        converted: Boolean
+    ): AgentCampaignState {
+        val nextPlacementsSeen = current.placementsSeen + 1
+        val nextNoticed = current.noticedCount + if (noticed) 1 else 0
+        val nextClicked = current.clickedCount + if (clicked) 1 else 0
+        val nextConverted = current.convertedCount + if (converted) 1 else 0
+        val fatigueIncrease = when {
+            converted -> 0
+            clicked -> 1
+            noticed -> 2
+            else -> 1
+        }
+        val nextFatigue = (current.fatigueScore + fatigueIncrease).coerceAtMost(10)
+        val nextBrandFamiliarity = when {
+            converted || nextClicked >= 2 -> "regular_user"
+            nextNoticed >= 2 -> "tried_once"
+            nextPlacementsSeen >= 1 && current.brandFamiliarity == "never_heard" -> "heard_not_tried"
+            else -> current.brandFamiliarity
+        }
+
+        return current.copy(
+            placementsSeen = nextPlacementsSeen,
+            noticedCount = nextNoticed,
+            clickedCount = nextClicked,
+            convertedCount = nextConverted,
+            fatigueScore = nextFatigue,
+            brandFamiliarity = nextBrandFamiliarity
+        )
+    }
 }

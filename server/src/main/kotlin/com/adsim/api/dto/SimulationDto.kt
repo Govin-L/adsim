@@ -31,3 +31,16 @@ data class InterviewResponse(
     val reply: String,
     val conversationId: String
 )
+
+data class UpdateCalibrationRequest(
+    val placements: List<CalibrationPlacementRequest> = emptyList()
+)
+
+data class CalibrationPlacementRequest(
+    val placementIndex: Int,
+    val ctr: Double? = null,
+    val cvr: Double? = null,
+    val cpa: Double? = null,
+    val impressions: Long? = null,
+    val conversions: Long? = null
+)

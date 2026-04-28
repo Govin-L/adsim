@@ -200,6 +200,7 @@
       "SIMULATING": "Running simulation...",
       "AGGREGATING": "Aggregating results...",
       "COMPLETED": "COMPLETED",
+      "COMPLETED_WITH_WARNINGS": "Completed with Warnings",
       "FAILED": "FAILED"
     },
     "metrics": {
@@ -251,6 +252,74 @@
       "conversionRate": "Conv. Rate",
       "agents": "agents"
     },
+    "placements": {
+      "title": "Placement Breakdown",
+      "samples": "Simulated samples: {{successful}}/{{total}}"
+    },
+    "blockers": {
+      "title": "Key Blockers",
+      "subtitle": "Main drop-off drivers aggregated from factors",
+      "stage": {
+        "attention": "Attention",
+        "click": "Click",
+        "conversion": "Conversion"
+      }
+    },
+    "recommendations": {
+      "title": "Recommended Actions",
+      "appliesTo": "Applies to:",
+      "priority": {
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      }
+    },
+    "quality": {
+      "title": "Sample Quality",
+      "warningBadge": "Quality Warning",
+      "requestedAgents": "Requested Agents",
+      "generatedAgents": "Generated Agents",
+      "generationSuccessRate": "Generation Success",
+      "sampleSuccessRate": "Simulation Success",
+      "samples": "Valid simulation samples: {{simulated}}/{{planned}}",
+      "warning": {
+        "low_generation_success_rate": "Agent generation success rate is below the configured threshold.",
+        "low_simulation_success_rate": "Placement simulation success rate is below the configured threshold."
+      }
+    },
+    "utilization": {
+      "title": "Agent Utilization",
+      "uniqueAgentsReached": "Reached Agents",
+      "uniqueReachRate": "Reach Rate",
+      "avgExposures": "Avg. Exposures",
+      "searchEligibleRate": "Search Eligible Rate",
+      "placement": "Placement {{index}}",
+      "coverageDetail": "Reached {{reached}} agents, eligible {{eligible}}, planned {{planned}} exposures"
+    },
+    "calibration": {
+      "title": "Calibration",
+      "subtitle": "Actual performance has been backfilled for {{coverage}} placements",
+      "placement": "Placement {{index}}",
+      "actual": "Actual",
+      "simulated": "Simulated",
+      "delta": "Delta",
+      "prior": {
+        "title": "Current prior guardrail",
+        "subtitle": "Current convergence baseline distilled from {{count}} calibration runs",
+        "attention": "Attention prior",
+        "ctr": "CTR prior",
+        "cvr": "CVR prior"
+      },
+      "form": {
+        "title": "Backfill actual performance",
+        "subtitle": "Input actual CTR / CVR / CPA for each placement to compare simulated output against real results.",
+        "submit": "Save calibration data",
+        "saving": "Saving...",
+        "ctrPlaceholder": "CTR %",
+        "cvrPlaceholder": "CVR %",
+        "cpaPlaceholder": "CPA"
+      }
+    },
     "agents": {
       "title": "Agents",
       "showing": "Showing {{shown}} of {{total}} agents",
@@ -281,6 +350,7 @@
     "verifying": "Verifying...",
     "verifySuccess": "Connection successful",
     "verifyFailed": "Connection failed",
+    "verifyUnknownError": "Unknown error",
     "concurrency": "Concurrency",
     "concurrencyHint": "Number of concurrent LLM requests. Use 1-3 for free tiers.",
     "notConfigured": "LLM not configured",
@@ -301,11 +371,19 @@
       "click": "Click",
       "conversion": "Conversion"
     },
+    "campaign": {
+      "placementsSeen": "Placements Seen",
+      "clickedCount": "Clicks",
+      "fatigueScore": "Fatigue",
+      "placementBreakdown": "Campaign Touchpoints"
+    },
     "placeholder": "Ask this agent...",
     "send": "Send",
     "thinking": "Thinking...",
     "emptyHint": "Ask this agent anything about their decision.",
     "emptyExample": "e.g. \"Why didn't you click?\" or \"What would make you buy?\"",
-    "failed": "Interview failed. Please try again."
+    "failed": "Interview failed. Please try again.",
+    "probabilityUnknown": "Unknown",
+    "drivers": "Drivers"
   }
 }

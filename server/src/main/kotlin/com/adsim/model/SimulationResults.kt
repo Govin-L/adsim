@@ -4,11 +4,136 @@ data class SimulationResults(
     val totalAgents: Int,
     val successfulAgents: Int,
     val metrics: Metrics,
+    val simulatedMetrics: SimulatedFunnelMetrics? = null,
+    val estimatedMetrics: EstimatedBusinessMetrics? = null,
     val funnel: Funnel,
     val dropOffReasons: DropOffReasons,
     val clusteredReasons: ClusteredDropOffReasons? = null,
     val segmentInsights: List<SegmentInsight>? = null,
-    val topInsights: List<InsightSummary>? = null
+    val topInsights: List<InsightSummary>? = null,
+    val placementResults: List<PlacementResult> = emptyList(),
+    val utilization: AgentUtilization? = null,
+    val quality: SimulationQuality? = null,
+    val stageBlockers: List<StageBlocker> = emptyList(),
+    val recommendations: List<ActionRecommendation> = emptyList(),
+    val calibration: CalibrationResult? = null
+)
+
+data class PlacementResult(
+    val placementIndex: Int,
+    val placement: AdPlacement,
+    val totalAgents: Int,
+    val successfulAgents: Int,
+    val metrics: Metrics,
+    val simulatedMetrics: SimulatedFunnelMetrics? = null,
+    val estimatedMetrics: EstimatedBusinessMetrics? = null,
+    val funnel: Funnel,
+    val dropOffReasons: DropOffReasons,
+    val clusteredReasons: ClusteredDropOffReasons? = null,
+    val segmentInsights: List<SegmentInsight>? = null,
+    val topInsights: List<InsightSummary>? = null,
+    val sampleQuality: SampleQuality = SampleQuality(),
+    val stageBlockers: List<StageBlocker> = emptyList(),
+    val recommendations: List<ActionRecommendation> = emptyList()
+)
+
+data class SampleQuality(
+    val plannedSamples: Int = 0,
+    val simulatedSamples: Int = 0,
+    val successRate: Double = 0.0,
+    val belowThreshold: Boolean = false
+)
+
+data class SimulationQuality(
+    val requestedAgents: Int,
+    val generatedAgents: Int,
+    val generationSuccessRate: Double,
+    val plannedSamples: Int,
+    val simulatedSamples: Int,
+    val sampleSuccessRate: Double,
+    val failedStages: List<String> = emptyList(),
+    val warningCodes: List<String> = emptyList(),
+    val reasonabilityWarnings: List<ReasonabilityWarning> = emptyList()
+)
+
+data class AgentUtilization(
+    val uniqueAgentsReached: Int,
+    val uniqueReachRate: Double,
+    val averageExposuresPerReachedAgent: Double,
+    val averagePlacementsPerReachedAgent: Double,
+    val searchEligibleRate: Double,
+    val placementCoverage: List<PlacementCoverage> = emptyList()
+)
+
+data class PlacementCoverage(
+    val placementIndex: Int,
+    val uniqueAgentsReached: Int,
+    val uniqueReachRate: Double,
+    val plannedSamples: Int,
+    val eligibleAgents: Int
+)
+
+data class ReasonabilityWarning(
+    val code: String,
+    val severity: String,
+    val message: String
+)
+
+data class StageBlocker(
+    val stage: String,
+    val factor: String,
+    val count: Int,
+    val share: Double,
+    val summary: String
+)
+
+data class ActionRecommendation(
+    val title: String,
+    val detail: String,
+    val appliesTo: String,
+    val priority: String
+)
+
+data class CalibrationResult(
+    val placements: List<CalibrationPlacementResult>,
+    val summary: CalibrationSummary
+)
+
+data class CalibrationPlacementResult(
+    val placementIndex: Int,
+    val actualMetrics: ActualPerformanceMetrics,
+    val simulatedMetrics: SimulatedFunnelMetrics,
+    val estimatedMetrics: EstimatedBusinessMetrics? = null,
+    val prior: PlacementPriorSnapshot? = null,
+    val deltas: CalibrationDelta
+)
+
+data class PlacementPriorSnapshot(
+    val baseAttention: Double,
+    val baseClick: Double,
+    val baseConversion: Double,
+    val calibrationCount: Int
+)
+
+data class CalibrationSummary(
+    val coverage: Int,
+    val averageCtrDelta: Double?,
+    val averageCvrDelta: Double?,
+    val averageCpaDelta: Double?
+)
+
+data class ActualPerformanceMetrics(
+    val ctr: Double? = null,
+    val cvr: Double? = null,
+    val cpa: Double? = null,
+    val impressions: Long? = null,
+    val conversions: Long? = null
+)
+
+data class CalibrationDelta(
+    val ctrDelta: Double? = null,
+    val cvrDelta: Double? = null,
+    val cpaDelta: Double? = null
 )
 
 /**
@@ -21,6 +146,20 @@ data class Metrics(
     val ctr: Double,
     val cvr: Double,
     val overallConversionRate: Double,
+    val estimatedCPA: Double?
+)
+
+data class SimulatedFunnelMetrics(
+    val attentionRate: Double,
+    val ctr: Double,
+    val cvr: Double,
+    val overallConversionRate: Double
+)
+
+data class EstimatedBusinessMetrics(
+    val estimatedImpressions: Double,
+    val estimatedViewers: Double,
+    val estimatedConversions: Double,
     val estimatedCPA: Double?
 )
 

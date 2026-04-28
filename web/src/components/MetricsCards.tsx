@@ -4,8 +4,12 @@ import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { HelpCircle } from 'lucide-react'
 
+import type { EstimatedBusinessMetrics, SimulatedFunnelMetrics } from '@/api/client'
+
 interface Props {
-  metrics: {
+  simulatedMetrics?: SimulatedFunnelMetrics
+  estimatedMetrics?: EstimatedBusinessMetrics
+  metrics?: {
     attentionRate: number
     ctr: number
     cvr: number
@@ -14,8 +18,23 @@ interface Props {
   }
 }
 
-export default function MetricsCards({ metrics }: Props) {
+export default function MetricsCards({ simulatedMetrics, estimatedMetrics, metrics }: Props) {
   const { t } = useTranslation()
+
+  const resolvedSimulated = simulatedMetrics ?? (metrics ? {
+    attentionRate: metrics.attentionRate,
+    ctr: metrics.ctr,
+    cvr: metrics.cvr,
+    overallConversionRate: metrics.overallConversionRate,
+  } : undefined)
+  const resolvedEstimated = estimatedMetrics ?? (metrics ? {
+    estimatedImpressions: 0,
+    estimatedViewers: 0,
+    estimatedConversions: 0,
+    estimatedCPA: metrics.estimatedCPA,
+  } : undefined)
+
+  if (!resolvedSimulated || !resolvedEstimated) return null
 
   const sections = [
     {
@@ -23,10 +42,10 @@ export default function MetricsCards({ metrics }: Props) {
       disclaimer: t('result.metrics.simulatedDisclaimer'),
       badge: t('result.metrics.simulatedBadge'),
       cards: [
-        { key: 'attentionRate', label: t('result.metrics.attentionRate'), value: pct(metrics.attentionRate), tip: t('result.metrics.attentionRateTip') },
-        { key: 'ctr', label: t('result.metrics.ctr'), value: pct(metrics.ctr), tip: t('result.metrics.ctrTip') },
-        { key: 'cvr', label: t('result.metrics.cvr'), value: pct(metrics.cvr), tip: t('result.metrics.cvrTip') },
-        { key: 'overall', label: t('result.metrics.overallConversionRate'), value: pct(metrics.overallConversionRate), tip: t('result.metrics.overallConversionRateTip') },
+        { key: 'attentionRate', label: t('result.metrics.attentionRate'), value: pct(resolvedSimulated.attentionRate), tip: t('result.metrics.attentionRateTip') },
+        { key: 'ctr', label: t('result.metrics.ctr'), value: pct(resolvedSimulated.ctr), tip: t('result.metrics.ctrTip') },
+        { key: 'cvr', label: t('result.metrics.cvr'), value: pct(resolvedSimulated.cvr), tip: t('result.metrics.cvrTip') },
+        { key: 'overall', label: t('result.metrics.overallConversionRate'), value: pct(resolvedSimulated.overallConversionRate), tip: t('result.metrics.overallConversionRateTip') },
       ],
     },
     {
@@ -37,7 +56,7 @@ export default function MetricsCards({ metrics }: Props) {
         {
           key: 'cpa',
           label: t('result.metrics.estimatedCPALabel'),
-          value: metrics.estimatedCPA != null ? `\u00a5${metrics.estimatedCPA < 1 ? metrics.estimatedCPA.toFixed(2) : metrics.estimatedCPA.toFixed(0)}` : '\u2014',
+          value: resolvedEstimated.estimatedCPA != null ? `\u00a5${resolvedEstimated.estimatedCPA < 1 ? resolvedEstimated.estimatedCPA.toFixed(2) : resolvedEstimated.estimatedCPA.toFixed(0)}` : '\u2014',
           tip: t('result.metrics.estimatedCPATip'),
         },
       ],

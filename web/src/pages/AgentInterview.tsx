@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { api, type Agent } from '../api/client'
+import { api, type Agent, type StageDecision } from '../api/client'
 import LanguageSwitch from '../components/LanguageSwitch'
 
 interface Message {
@@ -95,9 +95,52 @@ export default function AgentInterview() {
           {/* Decision Summary */}
           {d && (
             <div className="mt-4 grid grid-cols-3 gap-2">
-              <DecisionCard label={t('interview.decision.attention')} passed={d.attention.passed} reasoning={d.attention.reasoning} />
-              <DecisionCard label={t('interview.decision.click')} passed={d.click.passed} reasoning={d.click.reasoning} />
-              <DecisionCard label={t('interview.decision.conversion')} passed={d.conversion.passed} reasoning={d.conversion.reasoning} />
+              <DecisionCard label={t('interview.decision.attention')} decision={d.attention} />
+              <DecisionCard label={t('interview.decision.click')} decision={d.click} />
+              <DecisionCard label={t('interview.decision.conversion')} decision={d.conversion} />
+            </div>
+          )}
+
+          {agent.campaignState && (
+            <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-2">
+              <MiniStat label={t('interview.campaign.placementsSeen')} value={String(agent.campaignState.placementsSeen)} />
+              <MiniStat label={t('interview.campaign.clickedCount')} value={String(agent.campaignState.clickedCount)} />
+              <MiniStat label={t('interview.campaign.fatigueScore')} value={String(agent.campaignState.fatigueScore)} />
+            </div>
+          )}
+
+          {((agent.placementOutcomes && agent.placementOutcomes.length > 0) || (agent.placementDecisions && agent.placementDecisions.length > 0)) && (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>
+                {t('interview.campaign.placementBreakdown')}
+              </p>
+              {(agent.placementOutcomes && agent.placementOutcomes.length > 0 ? agent.placementOutcomes : agent.placementDecisions ?? []).map((placement) => {
+                const attention = 'attention' in placement ? placement.attention : placement.decisions.attention
+                const click = 'click' in placement ? placement.click : placement.decisions.click
+                const conversion = 'conversion' in placement ? placement.conversion : placement.decisions.conversion
+                const traceMeta = 'exposureEvent' in placement ? placement.exposureEvent : undefined
+
+                return (
+                  <div
+                    key={`${placement.placementIndex}-${placement.platform}-${placement.placementType}`}
+                    className="rounded-lg px-3 py-2"
+                    style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                  >
+                    <p className="text-xs font-medium">
+                      {t(`create.platform.${placement.platform}`)} / {t(`create.placementType.${placement.placementType}`)}
+                    </p>
+                    <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                      A {attention.passed ? 'Y' : 'N'} · C {click.passed ? 'Y' : 'N'} · V {conversion.passed ? 'Y' : 'N'}
+                    </p>
+                    {traceMeta && (
+                      <p className="text-[10px] mt-1 break-words" style={{ color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+                        seq {traceMeta.sequence} · {traceMeta.deliveryContext.source} · f{traceMeta.deliveryContext.frequency}
+                        {traceMeta.deliveryContext.intentLevel != null ? ` · intent ${Math.round(traceMeta.deliveryContext.intentLevel * 100)}%` : ''}
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -166,19 +209,42 @@ export default function AgentInterview() {
   )
 }
 
-function DecisionCard({ label, passed, reasoning }: { label: string; passed: boolean; reasoning: string }) {
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg px-3 py-2" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+      <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>{label}</p>
+      <p className="mt-1 text-sm font-semibold" style={{ fontFamily: 'var(--font-mono)' }}>{value}</p>
+    </div>
+  )
+}
+
+function DecisionCard({ label, decision }: { label: string; decision: StageDecision }) {
+  const probabilityPct = decision.probability != null ? `${Math.round(decision.probability * 100)}%` : null
+  const driverTags = (decision.passed ? decision.positiveFactors : decision.negativeFactors) ?? []
+
   return (
     <div className="p-3 rounded-lg" style={{
-      background: passed ? 'var(--color-success-bg)' : 'var(--color-error-bg)',
-      border: `1px solid ${passed ? '#bbf7d0' : '#fecaca'}`,
+      background: decision.passed ? 'var(--color-success-bg)' : 'var(--color-error-bg)',
+      border: `1px solid ${decision.passed ? '#bbf7d0' : '#fecaca'}`,
     }}>
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className="w-1.5 h-1.5 rounded-full" style={{ background: passed ? 'var(--color-success)' : 'var(--color-error)' }} />
-        <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: passed ? 'var(--color-success)' : 'var(--color-error)' }}>
-          {label}
-        </span>
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: decision.passed ? 'var(--color-success)' : 'var(--color-error)' }} />
+          <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: decision.passed ? 'var(--color-success)' : 'var(--color-error)' }}>
+            {label}
+          </span>
+        </div>
+        <div className="text-[10px] text-right" style={{ color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+          {decision.likelihoodBand && <div>{decision.likelihoodBand}</div>}
+          {probabilityPct && <div>{probabilityPct}</div>}
+        </div>
       </div>
-      <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{reasoning}</p>
+      <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{decision.reasoning}</p>
+      {driverTags.length > 0 && (
+        <p className="text-[10px] mt-2 break-words" style={{ color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+          {driverTags.join(' · ')}
+        </p>
+      )}
     </div>
   )
 }

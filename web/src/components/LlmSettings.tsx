@@ -17,11 +17,13 @@ export default function LlmSettings() {
   const [configured, setConfigured] = useState(isLlmConfigured())
   const [verifying, setVerifying] = useState(false)
   const [verifyResult, setVerifyResult] = useState<'success' | 'failed' | null>(null)
+  const [verifyError, setVerifyError] = useState<string | null>(null)
 
   useEffect(() => {
     const existing = getLlmConfig()
     if (existing) setConfig(existing)
     setVerifyResult(null)
+    setVerifyError(null)
   }, [open])
 
   const handleSave = () => {
@@ -36,12 +38,15 @@ export default function LlmSettings() {
     saveLlmConfig(config)
     setVerifying(true)
     setVerifyResult(null)
+    setVerifyError(null)
     try {
       const res = await api.verifyLlm()
       setVerifyResult(res.success ? 'success' : 'failed')
+      setVerifyError(res.success ? null : (res.error ?? t('settings.verifyUnknownError')))
       if (res.success) setConfigured(true)
-    } catch {
+    } catch (error) {
       setVerifyResult('failed')
+      setVerifyError(error instanceof Error ? error.message : t('settings.verifyUnknownError'))
     } finally {
       setVerifying(false)
     }
@@ -68,20 +73,20 @@ export default function LlmSettings() {
           <div>
             <Label className="text-xs">{t('settings.apiKey')}</Label>
             <Input type="password" value={config.apiKey} placeholder={t('settings.apiKeyPlaceholder')}
-              onChange={e => { setConfig(c => ({ ...c, apiKey: e.target.value })); setVerifyResult(null) }}
+              onChange={e => { setConfig(c => ({ ...c, apiKey: e.target.value })); setVerifyResult(null); setVerifyError(null) }}
               autoComplete="off" data-1p-ignore data-lpignore="true"
               className="mt-1.5 font-mono text-sm" />
           </div>
           <div>
             <Label className="text-xs">{t('settings.baseUrl')}</Label>
             <Input value={config.baseUrl} placeholder={t('settings.baseUrlPlaceholder')}
-              onChange={e => { setConfig(c => ({ ...c, baseUrl: e.target.value })); setVerifyResult(null) }}
+              onChange={e => { setConfig(c => ({ ...c, baseUrl: e.target.value })); setVerifyResult(null); setVerifyError(null) }}
               className="mt-1.5 font-mono text-sm" />
           </div>
           <div>
             <Label className="text-xs">{t('settings.model')}</Label>
             <Input value={config.model} placeholder={t('settings.modelPlaceholder')}
-              onChange={e => { setConfig(c => ({ ...c, model: e.target.value })); setVerifyResult(null) }}
+              onChange={e => { setConfig(c => ({ ...c, model: e.target.value })); setVerifyResult(null); setVerifyError(null) }}
               className="mt-1.5 font-mono text-sm" />
           </div>
           <div>
@@ -95,11 +100,16 @@ export default function LlmSettings() {
 
           {/* Verify result */}
           {verifyResult && (
-            <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${
+            <div className={`text-xs px-3 py-2 rounded-lg ${
               verifyResult === 'success' ? 'bg-success-light text-success' : 'bg-error-light text-error'
             }`}>
-              {verifyResult === 'success' ? <CircleCheck size={14} /> : <CircleX size={14} />}
-              {verifyResult === 'success' ? t('settings.verifySuccess') : t('settings.verifyFailed')}
+              <div className="flex items-center gap-2">
+                {verifyResult === 'success' ? <CircleCheck size={14} /> : <CircleX size={14} />}
+                {verifyResult === 'success' ? t('settings.verifySuccess') : t('settings.verifyFailed')}
+              </div>
+              {verifyResult === 'failed' && verifyError && (
+                <div className="mt-1 break-all text-[11px] opacity-90">{verifyError}</div>
+              )}
             </div>
           )}
 

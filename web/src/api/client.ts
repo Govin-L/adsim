@@ -75,7 +75,7 @@ export interface ParsePlanResponse {
 
 export interface Simulation {
   id: string
-  status: 'PENDING' | 'GENERATING' | 'SIMULATING' | 'AGGREGATING' | 'COMPLETED' | 'FAILED'
+  status: 'PENDING' | 'GENERATING' | 'SIMULATING' | 'AGGREGATING' | 'COMPLETED' | 'COMPLETED_WITH_WARNINGS' | 'FAILED'
   progress: { total: number; completed: number }
   errorMessage: string | null
   input: SimulationInput
@@ -114,29 +114,227 @@ export interface InsightSummary {
   text: string
 }
 
-export interface SimulationResults {
+export interface Metrics {
+  attentionRate: number
+  ctr: number
+  cvr: number
+  overallConversionRate: number
+  estimatedCPA: number | null
+}
+
+export interface SimulatedFunnelMetrics {
+  attentionRate: number
+  ctr: number
+  cvr: number
+  overallConversionRate: number
+}
+
+export interface EstimatedBusinessMetrics {
+  estimatedImpressions: number
+  estimatedViewers: number
+  estimatedConversions: number
+  estimatedCPA: number | null
+}
+
+export interface FunnelStage {
+  count: number
+  rate: number
+}
+
+export interface Funnel {
+  exposure: FunnelStage
+  attention: FunnelStage
+  click: FunnelStage
+  conversion: FunnelStage
+}
+
+export interface DropOffReason {
+  reason: string
+  count: number
+  percentage: number
+}
+
+export interface DropOffReasons {
+  attentionToClick: DropOffReason[]
+  clickToConversion: DropOffReason[]
+}
+
+export interface PlacementResult {
+  placementIndex: number
+  placement: AdPlacement
   totalAgents: number
   successfulAgents: number
-  metrics: {
-    attentionRate: number
-    ctr: number
-    cvr: number
-    overallConversionRate: number
-    estimatedCPA: number | null
-  }
-  funnel: {
-    exposure: { count: number; rate: number }
-    attention: { count: number; rate: number }
-    click: { count: number; rate: number }
-    conversion: { count: number; rate: number }
-  }
-  dropOffReasons: {
-    attentionToClick: { reason: string; count: number; percentage: number }[]
-    clickToConversion: { reason: string; count: number; percentage: number }[]
-  }
+  metrics: Metrics
+  simulatedMetrics?: SimulatedFunnelMetrics
+  estimatedMetrics?: EstimatedBusinessMetrics
+  funnel: Funnel
+  dropOffReasons: DropOffReasons
   clusteredReasons?: ClusteredDropOffReasons
   segmentInsights?: SegmentInsight[]
   topInsights?: InsightSummary[]
+  sampleQuality?: SampleQuality
+  stageBlockers?: StageBlocker[]
+  recommendations?: ActionRecommendation[]
+}
+
+export interface SampleQuality {
+  plannedSamples: number
+  simulatedSamples: number
+  successRate: number
+  belowThreshold: boolean
+}
+
+export interface ReasonabilityWarning {
+  code: string
+  severity: string
+  message: string
+}
+
+export interface PlacementCoverage {
+  placementIndex: number
+  uniqueAgentsReached: number
+  uniqueReachRate: number
+  plannedSamples: number
+  eligibleAgents: number
+}
+
+export interface AgentUtilization {
+  uniqueAgentsReached: number
+  uniqueReachRate: number
+  averageExposuresPerReachedAgent: number
+  averagePlacementsPerReachedAgent: number
+  searchEligibleRate: number
+  placementCoverage: PlacementCoverage[]
+}
+
+export interface SimulationQuality {
+  requestedAgents: number
+  generatedAgents: number
+  generationSuccessRate: number
+  plannedSamples: number
+  simulatedSamples: number
+  sampleSuccessRate: number
+  failedStages: string[]
+  warningCodes: string[]
+  reasonabilityWarnings: ReasonabilityWarning[]
+}
+
+export interface StageBlocker {
+  stage: string
+  factor: string
+  count: number
+  share: number
+  summary: string
+}
+
+export interface ActionRecommendation {
+  title: string
+  detail: string
+  appliesTo: string
+  priority: string
+}
+
+export interface CalibrationDelta {
+  ctrDelta?: number | null
+  cvrDelta?: number | null
+  cpaDelta?: number | null
+}
+
+export interface ActualPerformanceMetrics {
+  ctr?: number | null
+  cvr?: number | null
+  cpa?: number | null
+  impressions?: number | null
+  conversions?: number | null
+}
+
+export interface PlacementPriorSnapshot {
+  baseAttention: number
+  baseClick: number
+  baseConversion: number
+  calibrationCount: number
+}
+
+export interface CalibrationPlacementResult {
+  placementIndex: number
+  actualMetrics: ActualPerformanceMetrics
+  simulatedMetrics: SimulatedFunnelMetrics
+  estimatedMetrics?: EstimatedBusinessMetrics
+  prior?: PlacementPriorSnapshot | null
+  deltas: CalibrationDelta
+}
+
+export interface CalibrationSummary {
+  coverage: number
+  averageCtrDelta?: number | null
+  averageCvrDelta?: number | null
+  averageCpaDelta?: number | null
+}
+
+export interface CalibrationResult {
+  placements: CalibrationPlacementResult[]
+  summary: CalibrationSummary
+}
+
+export interface SimulationResults {
+  totalAgents: number
+  successfulAgents: number
+  metrics: Metrics
+  simulatedMetrics?: SimulatedFunnelMetrics
+  estimatedMetrics?: EstimatedBusinessMetrics
+  funnel: Funnel
+  dropOffReasons: DropOffReasons
+  clusteredReasons?: ClusteredDropOffReasons
+  segmentInsights?: SegmentInsight[]
+  topInsights?: InsightSummary[]
+  placementResults?: PlacementResult[]
+  utilization?: AgentUtilization
+  quality?: SimulationQuality
+  stageBlockers?: StageBlocker[]
+  recommendations?: ActionRecommendation[]
+  calibration?: CalibrationResult
+}
+
+export interface UpdateCalibrationRequest {
+  placements: Array<{
+    placementIndex: number
+    ctr?: number
+    cvr?: number
+    cpa?: number
+    impressions?: number
+    conversions?: number
+  }>
+}
+
+export interface StageDecision {
+  passed: boolean
+  reasoning: string
+  factors?: string[]
+  score?: number
+  likelihoodBand?: 'VERY_LOW' | 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH' | null
+  probability?: number | null
+  positiveFactors?: string[]
+  negativeFactors?: string[]
+}
+
+export interface PlacementOutcome {
+  placementIndex: number
+  platform: string
+  placementType: string
+  exposureEvent: {
+    agentId: string
+    placementIndex: number
+    sequence: number
+    deliveryContext: {
+      source: string
+      frequency: number
+      intentLevel?: number | null
+      estimatedCostWeight: number
+    }
+  }
+  attention: StageDecision
+  click: StageDecision
+  conversion: StageDecision
 }
 
 export interface Agent {
@@ -160,11 +358,30 @@ export interface Agent {
       brandLoyalty: string
     }
   }
+  campaignState?: {
+    placementsSeen: number
+    noticedCount: number
+    clickedCount: number
+    convertedCount: number
+    fatigueScore: number
+    brandFamiliarity: string
+  }
   decisions: {
-    attention: { passed: boolean; reasoning: string; factors?: string[] }
-    click: { passed: boolean; reasoning: string; factors?: string[] }
-    conversion: { passed: boolean; reasoning: string; factors?: string[] }
+    attention: StageDecision
+    click: StageDecision
+    conversion: StageDecision
   } | null
+  placementDecisions?: Array<{
+    placementIndex: number
+    platform: string
+    placementType: string
+    decisions: {
+      attention: StageDecision
+      click: StageDecision
+      conversion: StageDecision
+    }
+  }>
+  placementOutcomes?: PlacementOutcome[]
 }
 
 export interface InterviewResponse {
@@ -208,6 +425,12 @@ export const api = {
     request<InterviewResponse>(`/simulations/${simulationId}/agents/${agentId}/interview`, {
       method: 'POST',
       body: JSON.stringify({ message, conversationId }),
+    }),
+
+  updateCalibration: (simulationId: string, payload: UpdateCalibrationRequest) =>
+    request<Simulation>(`/simulations/${simulationId}/calibration`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
     }),
 
   subscribeProgress: (simulationId: string) =>
