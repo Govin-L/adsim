@@ -109,16 +109,16 @@ export default function AgentInterview() {
             </div>
           )}
 
-          {((agent.placementOutcomes && agent.placementOutcomes.length > 0) || (agent.placementDecisions && agent.placementDecisions.length > 0)) && (
+          {agent.placementOutcomes && agent.placementOutcomes.length > 0 && (
             <div className="mt-4 space-y-2">
               <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>
                 {t('interview.campaign.placementBreakdown')}
               </p>
-              {(agent.placementOutcomes && agent.placementOutcomes.length > 0 ? agent.placementOutcomes : agent.placementDecisions ?? []).map((placement) => {
-                const attention = 'attention' in placement ? placement.attention : placement.decisions.attention
-                const click = 'click' in placement ? placement.click : placement.decisions.click
-                const conversion = 'conversion' in placement ? placement.conversion : placement.decisions.conversion
-                const traceMeta = 'exposureEvent' in placement ? placement.exposureEvent : undefined
+              {agent.placementOutcomes.map((placement) => {
+                const attention = placement.attention
+                const click = placement.click
+                const conversion = placement.conversion
+                const traceMeta = placement.exposureEvent
 
                 return (
                   <div

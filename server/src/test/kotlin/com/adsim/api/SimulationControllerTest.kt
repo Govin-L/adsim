@@ -104,7 +104,8 @@ class SimulationControllerTest {
                                 baseAttention = 0.6,
                                 baseClick = 0.08,
                                 baseConversion = 0.03,
-                                calibrationCount = 1
+                                calibrationCount = 1,
+                                converged = false
                             ),
                             deltas = CalibrationDelta(ctrDelta = 0.03, cvrDelta = 0.01, cpaDelta = -30.0)
                         )

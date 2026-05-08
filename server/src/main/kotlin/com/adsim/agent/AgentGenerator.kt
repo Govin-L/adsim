@@ -198,9 +198,14 @@ Valid enum values:
     }
 
     private fun parseAgents(content: String): List<Agent> {
-        return try {
-            val wrapper = objectMapper.readValue<AgentBatchWrapper>(content)
-            wrapper.agents.map { dto ->
+        val wrapper = try {
+            objectMapper.readValue<AgentBatchWrapper>(content)
+        } catch (e: Exception) {
+            logger.error("Failed to parse agent batch JSON, content preview: {}", content.take(300))
+            throw RuntimeException("Agent batch JSON parsing failed: ${e.message}", e)
+        }
+        return wrapper.agents.mapNotNull { dto ->
+            try {
                 Agent(
                     simulationId = "",
                     persona = Persona(
@@ -225,16 +230,25 @@ Valid enum values:
                                 currentBrand = it.currentBrand,
                                 currentProductPrice = it.currentProductPrice,
                                 satisfaction = it.satisfaction,
-                                brandAwareness = it.brandAwareness ?: "never_heard",
+                                brandAwareness = parseBrandFamiliarity(it.brandAwareness),
                                 recentAdExposure = it.recentAdExposure ?: 0
                             )
                         } ?: ConsumerContext()
                     )
                 )
+            } catch (e: Exception) {
+                logger.warn("Skipping malformed agent DTO in batch: {}", e.message?.take(120))
+                null
             }
-        } catch (e: Exception) {
-            logger.error("Failed to parse agent batch: {}", e.message)
-            emptyList()
+        }
+    }
+
+    private fun parseBrandFamiliarity(value: String?): BrandFamiliarity {
+        return when (value) {
+            "regular_user" -> BrandFamiliarity.REGULAR_USER
+            "tried_once" -> BrandFamiliarity.TRIED_ONCE
+            "heard_not_tried" -> BrandFamiliarity.HEARD_NOT_TRIED
+            else -> BrandFamiliarity.NEVER_HEARD
         }
     }
 

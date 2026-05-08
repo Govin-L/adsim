@@ -92,7 +92,7 @@ class ResultAggregatorTest {
         )
 
         val agents = listOf(
-            agentWithPlacementDecisions(
+            agentWithPlacements(
                 "Ava",
                 placement0 = Decisions(
                     attention = StageDecision(true, "看到了", listOf("interest_match"), likelihoodBand = LikelihoodBand.HIGH, probability = 0.82, positiveFactors = listOf("interest_match")),
@@ -105,7 +105,7 @@ class ResultAggregatorTest {
                     conversion = StageDecision(false, "没有点击广告", negativeFactors = listOf("no_click"), likelihoodBand = LikelihoodBand.VERY_LOW, probability = 0.0)
                 )
             ),
-            agentWithPlacementDecisions(
+            agentWithPlacements(
                 "Bella",
                 placement0 = Decisions(
                     attention = StageDecision(true, "看到了", listOf("interest_match"), likelihoodBand = LikelihoodBand.HIGH, probability = 0.78, positiveFactors = listOf("interest_match")),
@@ -178,6 +178,11 @@ class ResultAggregatorTest {
         clickReason: String,
         conversionReason: String
     ): Agent {
+        val decisions = Decisions(
+            attention = StageDecision(attentionPassed, attentionReason, if (attentionPassed) listOf("interest_match") else listOf("no_interest")),
+            click = StageDecision(clickPassed, clickReason, if (clickPassed) listOf("creative_appeal") else listOf("no_interest")),
+            conversion = StageDecision(conversionPassed, conversionReason, if (conversionPassed) listOf("price_acceptable") else listOf("price_too_high"))
+        )
         return Agent(
             simulationId = "sim-1",
             persona = Persona(
@@ -198,15 +203,27 @@ class ResultAggregatorTest {
                     brandLoyalty = SensitivityLevel.MEDIUM
                 )
             ),
-            decisions = Decisions(
-                attention = StageDecision(attentionPassed, attentionReason, if (attentionPassed) listOf("interest_match") else listOf("no_interest")),
-                click = StageDecision(clickPassed, clickReason, if (clickPassed) listOf("creative_appeal") else listOf("no_interest")),
-                conversion = StageDecision(conversionPassed, conversionReason, if (conversionPassed) listOf("price_acceptable") else listOf("price_too_high"))
+            decisions = decisions,
+            placementOutcomes = listOf(
+                PlacementOutcome(
+                    placementIndex = 0,
+                    platform = "xiaohongshu",
+                    placementType = PlacementType.INFO_FEED,
+                    exposureEvent = ExposureEvent(
+                        agentId = name.lowercase(),
+                        placementIndex = 0,
+                        sequence = 0,
+                        deliveryContext = DeliveryContext(source = "test", frequency = 1)
+                    ),
+                    attention = decisions.attention,
+                    click = decisions.click,
+                    conversion = decisions.conversion
+                )
             )
         )
     }
 
-    private fun agentWithPlacementDecisions(
+    private fun agentWithPlacements(
         name: String,
         placement0: Decisions,
         placement1: Decisions
@@ -262,10 +279,6 @@ class ResultAggregatorTest {
                     click = placement1.click,
                     conversion = placement1.conversion
                 )
-            ),
-            placementDecisions = listOf(
-                PlacementDecisions(0, "xiaohongshu", PlacementType.INFO_FEED, placement0),
-                PlacementDecisions(1, "google", PlacementType.SEARCH, placement1)
             )
         )
     }

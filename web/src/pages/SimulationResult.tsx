@@ -31,6 +31,7 @@ export default function SimulationResult() {
   const [agentPage, setAgentPage] = useState(1)
   const agentPageSize = 20
   const [agents, setAgents] = useState<Agent[]>([])
+  const [showCalibration, setShowCalibration] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -223,14 +224,16 @@ export default function SimulationResult() {
         {/* Results */}
         {(simulation.status === 'COMPLETED' || simulation.status === 'COMPLETED_WITH_WARNINGS') && simulation.results && (
           <>
-            {simulation.results.quality && (
-              <SimulationQualityCard quality={simulation.results.quality} />
-            )}
-            {simulation.results.utilization && (
-              <UtilizationCard utilization={simulation.results.utilization} />
-            )}
+            {/* ── 核心洞察 ── */}
             {simulation.results.topInsights && simulation.results.topInsights.length > 0 && (
               <InsightsBanner insights={simulation.results.topInsights} />
+            )}
+            <DropOffReasons
+              dropOffReasons={simulation.results.dropOffReasons}
+              clusteredReasons={simulation.results.clusteredReasons}
+            />
+            {simulation.results.segmentInsights && simulation.results.segmentInsights.length > 0 && (
+              <SegmentAnalysis segments={simulation.results.segmentInsights} />
             )}
             {simulation.results.stageBlockers && simulation.results.stageBlockers.length > 0 && (
               <StageBlockersCard blockers={simulation.results.stageBlockers} />
@@ -238,28 +241,58 @@ export default function SimulationResult() {
             {simulation.results.recommendations && simulation.results.recommendations.length > 0 && (
               <RecommendationsCard recommendations={simulation.results.recommendations} />
             )}
-            {simulation.results.placementResults && simulation.results.placementResults.length > 0 && (
-              <CalibrationFormCard simulation={simulation} onUpdated={setSimulation} />
+
+            {/* ── 数据详情 ── */}
+            <section className="mt-8">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">{t('result.section.data')}</h2>
+              <FunnelChart funnel={simulation.results.funnel} />
+              {simulation.results.placementResults && simulation.results.placementResults.length > 0 && (
+                <PlacementResults placementResults={simulation.results.placementResults} />
+              )}
+            </section>
+
+            {/* ── 参考指标 ── */}
+            <section className="mt-8">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">{t('result.section.reference')}</h2>
+              <p className="text-[11px] text-muted-foreground/70 mb-3">{t('result.section.referenceHint')}</p>
+              <MetricsCards
+                metrics={simulation.results.metrics}
+                simulatedMetrics={simulation.results.simulatedMetrics}
+                estimatedMetrics={simulation.results.estimatedMetrics}
+              />
+              {(simulation.results.placementResults && simulation.results.placementResults.length > 0) && (
+                <div className="mt-4 border border-dashed rounded-lg px-4 py-3 bg-muted/10">
+                  <button
+                    onClick={() => setShowCalibration(!showCalibration)}
+                    className="w-full text-left flex items-center justify-between text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <span className="uppercase tracking-wider">{t('result.calibration.title')} ({t('result.calibration.optional')})</span>
+                    <ChevronDown size={14} className={showCalibration ? 'rotate-180' : ''} style={{ transition: 'transform 0.2s' }} />
+                  </button>
+                  {showCalibration && (
+                    <div className="mt-3 space-y-4">
+                      <CalibrationFormCard simulation={simulation} onUpdated={setSimulation} />
+                      {simulation.results.calibration && (
+                        <CalibrationCard calibration={simulation.results.calibration} />
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+
+            {/* ── 系统信息 ── */}
+            {(simulation.results.quality || simulation.results.utilization) && (
+              <section className="mt-8">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">{t('result.section.system')}</h2>
+                {simulation.results.quality && (
+                  <SimulationQualityCard quality={simulation.results.quality} />
+                )}
+                {simulation.results.utilization && (
+                  <UtilizationCard utilization={simulation.results.utilization} />
+                )}
+              </section>
             )}
-            {simulation.results.calibration && (
-              <CalibrationCard calibration={simulation.results.calibration} />
-            )}
-            <MetricsCards
-              metrics={simulation.results.metrics}
-              simulatedMetrics={simulation.results.simulatedMetrics}
-              estimatedMetrics={simulation.results.estimatedMetrics}
-            />
-            {simulation.results.placementResults && simulation.results.placementResults.length > 0 && (
-              <PlacementResults placementResults={simulation.results.placementResults} />
-            )}
-            <FunnelChart funnel={simulation.results.funnel} />
-            {simulation.results.segmentInsights && simulation.results.segmentInsights.length > 0 && (
-              <SegmentAnalysis segments={simulation.results.segmentInsights} />
-            )}
-            <DropOffReasons
-              dropOffReasons={simulation.results.dropOffReasons}
-              clusteredReasons={simulation.results.clusteredReasons}
-            />
 
             {/* Agent List */}
             <section className="mt-8 animate-in stagger-5">

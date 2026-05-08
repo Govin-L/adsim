@@ -63,17 +63,39 @@ class PriorCalibrationService(
     }
 
     fun toSnapshot(prior: PlacementPrior): PlacementPriorSnapshot {
+        val metric = convergenceMetric(prior)
         return PlacementPriorSnapshot(
             baseAttention = prior.baseAttention,
             baseClick = prior.baseClick,
             baseConversion = prior.baseConversion,
-            calibrationCount = prior.calibrationCount
+            calibrationCount = prior.calibrationCount,
+            converged = metric != null && metric > 0.7
         )
     }
 
-    fun applyPrior(probability: Double, priorBase: Double?): Double {
+    fun applyPrior(probability: Double, priorBase: Double?, calibrationCount: Int = 0): Double {
         val normalizedPrior = priorBase?.coerceIn(0.0, 1.0) ?: return probability.coerceIn(0.0, 1.0)
-        return (probability * LLM_WEIGHT + normalizedPrior * PRIOR_WEIGHT).coerceIn(0.0, 1.0)
+        val priorWeight = priorWeight(calibrationCount)
+        val llmWeight = 1.0 - priorWeight
+        return (probability * llmWeight + normalizedPrior * priorWeight).coerceIn(0.0, 1.0)
+    }
+
+    /**
+     * Prior weight grows with calibration count.
+     * 0 calibrations → 5% prior influence (almost pure LLM)
+     * 5 calibrations → 25% prior influence
+     * 20+ calibrations → 45% prior influence (never exceeds 50%)
+     */
+    fun priorWeight(calibrationCount: Int): Double {
+        if (calibrationCount <= 0) return 0.05
+        val weight = 0.05 + 0.40 * (1.0 - Math.exp(-calibrationCount / 10.0))
+        return weight.coerceIn(0.05, 0.45)
+    }
+
+    fun convergenceMetric(prior: PlacementPrior?): Double? {
+        if (prior == null || prior.calibrationCount < 2) return null
+        // Simple heuristic: more calibrations → more converged, capped at ~0.95
+        return (1.0 - Math.exp(-prior.calibrationCount / 8.0)).coerceIn(0.0, 0.95)
     }
 
     fun deliveryMixWeight(platform: String, placementType: PlacementType, category: String): Double {

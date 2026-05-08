@@ -308,7 +308,8 @@
         "subtitle": "基于 {{count}} 次校准沉淀的当前收敛基线",
         "attention": "注意率 prior",
         "ctr": "CTR prior",
-        "cvr": "CVR prior"
+        "cvr": "CVR prior",
+        "converged": "已收敛"
       },
       "form": {
         "title": "回填真实投放数据",
@@ -318,7 +319,8 @@
         "ctrPlaceholder": "CTR %",
         "cvrPlaceholder": "CVR %",
         "cpaPlaceholder": "CPA"
-      }
+      },
+      "optional": "可选"
     },
     "agents": {
       "title": "Agent 列表",
@@ -331,6 +333,12 @@
     "failed": {
       "title": "模拟失败",
       "retry": "重新尝试"
+    },
+    "section": {
+      "data": "数据详情",
+      "reference": "参考指标",
+      "referenceHint": "以下数字为行业基准估算和模拟统计，不适合作为真实投放预测，更适合用于方案对比和人群差异分析。",
+      "system": "系统信息"
     },
     "loading": "加载中...",
     "notFound": "模拟不存在"

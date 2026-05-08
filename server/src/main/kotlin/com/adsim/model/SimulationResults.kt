@@ -112,7 +112,8 @@ data class PlacementPriorSnapshot(
     val baseAttention: Double,
     val baseClick: Double,
     val baseConversion: Double,
-    val calibrationCount: Int
+    val calibrationCount: Int,
+    val converged: Boolean = false
 )
 
 data class CalibrationSummary(

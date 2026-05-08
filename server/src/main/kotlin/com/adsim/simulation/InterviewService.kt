@@ -20,6 +20,11 @@ class InterviewService {
     private val logger = LoggerFactory.getLogger(InterviewService::class.java)
     private val conversations = ConcurrentHashMap<String, MutableList<ChatMessage>>()
 
+    companion object {
+        private const val MAX_CONVERSATIONS = 50
+        private const val MAX_HISTORY_SIZE = 21 // system prompt + 10 exchanges (20 messages)
+    }
+
     fun chat(simulation: Simulation, agent: Agent, request: InterviewRequest, chatModel: ChatModel): InterviewResponse {
         val conversationId = request.conversationId ?: UUID.randomUUID().toString()
         val history = conversations.getOrPut(conversationId) { mutableListOf() }
@@ -29,6 +34,12 @@ class InterviewService {
         }
 
         history.add(UserMessage.from(request.message))
+
+        // Cap history to prevent unbounded growth: keep system prompt + last N exchanges
+        while (history.size > MAX_HISTORY_SIZE) {
+            // Remove oldest non-system message (system prompt is at index 0)
+            if (history.size > 1) history.removeAt(1) else break
+        }
 
         logger.info("Interview agent: {}, conversationId: {}", agent.id, conversationId)
 
@@ -40,6 +51,12 @@ class InterviewService {
 
         val reply = response.aiMessage().text()
         history.add(AiMessage.from(reply))
+
+        // Evict oldest conversation if over capacity
+        if (conversations.size > MAX_CONVERSATIONS) {
+            val oldest = conversations.keys.firstOrNull()
+            if (oldest != null) conversations.remove(oldest)
+        }
 
         return InterviewResponse(reply, conversationId)
     }
@@ -59,10 +76,6 @@ class InterviewService {
                     }
                 }
                 "- ${placement.platform}/${placement.placementType}: attention=${placement.attention.passed}, click=${placement.click.passed}, conversion=${placement.conversion.passed}; $deliveryHint"
-            }
-        } else if (agent.placementDecisions.isNotEmpty()) {
-            agent.placementDecisions.joinToString("\n") { placement ->
-                "- ${placement.platform}/${placement.placementType}: attention=${placement.decisions.attention.passed}, click=${placement.decisions.click.passed}, conversion=${placement.decisions.conversion.passed}"
             }
         } else {
             "- No placement-level decisions recorded"
@@ -88,7 +101,7 @@ Campaign state summary:
 - clicked count: ${campaignState.clickedCount}
 - converted count: ${campaignState.convertedCount}
 - fatigue score: ${campaignState.fatigueScore}
-- campaign brand familiarity: ${campaignState.brandFamiliarity}
+- campaign brand familiarity: ${campaignState.brandFamiliarity.label}
 
 Placement breakdown:
 $placementSummary

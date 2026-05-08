@@ -253,6 +253,7 @@ export interface PlacementPriorSnapshot {
   baseClick: number
   baseConversion: number
   calibrationCount: number
+  converged?: boolean
 }
 
 export interface CalibrationPlacementResult {
@@ -310,7 +311,6 @@ export interface StageDecision {
   passed: boolean
   reasoning: string
   factors?: string[]
-  score?: number
   likelihoodBand?: 'VERY_LOW' | 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH' | null
   probability?: number | null
   positiveFactors?: string[]
@@ -371,16 +371,6 @@ export interface Agent {
     click: StageDecision
     conversion: StageDecision
   } | null
-  placementDecisions?: Array<{
-    placementIndex: number
-    platform: string
-    placementType: string
-    decisions: {
-      attention: StageDecision
-      click: StageDecision
-      conversion: StageDecision
-    }
-  }>
   placementOutcomes?: PlacementOutcome[]
 }
 

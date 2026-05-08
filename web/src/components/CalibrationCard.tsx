@@ -91,9 +91,16 @@ function PriorGuardrail({ prior }: { prior: PlacementPriorSnapshot }) {
 
   return (
     <div className="mt-3 rounded-md border border-dashed bg-background/60 px-3 py-2">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-        {t('result.calibration.prior.title')}
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          {t('result.calibration.prior.title')}
+        </p>
+        {prior.converged && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-teal/10 text-teal border border-teal/20">
+            {t('result.calibration.prior.converged')}
+          </span>
+        )}
+      </div>
       <p className="mt-1 text-xs text-muted-foreground">
         {t('result.calibration.prior.subtitle', { count: prior.calibrationCount })}
       </p>

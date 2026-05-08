@@ -78,11 +78,11 @@ class SimulationEngine(
 
         agentRepository.saveAll(decidedAgents)
 
-        val placementSamples = decidedAgents.flatMap { it.placementDecisions }
-        val noticed = placementSamples.count { it.decisions.attention.passed }
-        val clicked = placementSamples.count { it.decisions.attention.passed && it.decisions.click.passed }
+        val placementSamples = decidedAgents.flatMap { it.placementOutcomes }
+        val noticed = placementSamples.count { it.attention.passed }
+        val clicked = placementSamples.count { it.attention.passed && it.click.passed }
         val converted = placementSamples.count {
-            it.decisions.attention.passed && it.decisions.click.passed && it.decisions.conversion.passed
+            it.attention.passed && it.click.passed && it.conversion.passed
         }
         logger.info(
             "Simulation complete: {} agents, exposures={}, noticed={}, clicked={}, converted={}",
@@ -134,19 +134,8 @@ class SimulationEngine(
                 }
             }
         }
-        val placementDecisions = placementOutcomes.map { placementOutcome ->
-            PlacementDecisions(
-                placementIndex = placementOutcome.placementIndex,
-                platform = placementOutcome.platform,
-                placementType = placementOutcome.placementType,
-                decisions = placementOutcome.decisions,
-                exposureEvent = placementOutcome.exposureEvent
-            )
-        }
-
         return agent.copy(
             decisions = placementOutcomes.firstOrNull()?.decisions,
-            placementDecisions = placementDecisions,
             placementOutcomes = placementOutcomes,
             campaignState = campaignState
         )
@@ -174,7 +163,7 @@ class SimulationEngine(
             chatModel,
             buildStage1Prompt(input, placement, agent, campaignState, exposureEvent)
         ) ?: return null
-        val attentionDecision = toStageDecision(stage1, prior?.baseAttention)
+        val attentionDecision = toStageDecision(stage1, "attention", prior?.baseAttention, prior?.calibrationCount ?: 0)
 
         if (!attentionDecision.passed) {
             val elapsed = System.currentTimeMillis() - startTime
@@ -215,7 +204,7 @@ class SimulationEngine(
             chatModel,
             buildStage2Prompt(input, placement, agent, campaignState, exposureEvent)
         ) ?: return null
-        val clickDecision = toStageDecision(stage2, prior?.baseClick)
+        val clickDecision = toStageDecision(stage2, "click", prior?.baseClick, prior?.calibrationCount ?: 0)
 
         if (!clickDecision.passed) {
             val elapsed = System.currentTimeMillis() - startTime
@@ -249,7 +238,7 @@ class SimulationEngine(
             chatModel,
             buildStage3Prompt(input, placement, agent, campaignState, exposureEvent)
         ) ?: return null
-        val conversionDecision = toStageDecision(stage3, prior?.baseConversion)
+        val conversionDecision = toStageDecision(stage3, "conversion", prior?.baseConversion, prior?.calibrationCount ?: 0)
 
         val elapsed = System.currentTimeMillis() - startTime
         logger.info(
@@ -347,11 +336,13 @@ You are browsing $platform, scrolling through your feed. You've already seen 30+
 Your attention is scarce — most content you scroll past in 1-2 seconds.
 You can see the brand and product name on the thumbnail, but you don't know the price or detailed specs.
 This is a quick glance — you decide in 1-2 seconds whether to stop or keep scrolling.
-Campaign context: you've already seen this brand ${campaignState.placementsSeen} times in this simulation, fatigue score ${campaignState.fatigueScore}, brand familiarity ${campaignState.brandFamiliarity}.
+Campaign context: you've already seen this brand ${campaignState.placementsSeen} times in this simulation, fatigue score ${campaignState.fatigueScore}, brand familiarity ${campaignState.brandFamiliarity.label}.
 
 Available factor tags:
 Positive: interest_match, creative_appeal, entertainment_value, brand_trust, social_proof
 Negative: no_interest, creative_boring, ad_fatigue, wrong_format, no_brand_trust, frequency_overload
+
+Real-world reference: in social media feeds, only about 15-40% of impressions actually get the user to stop scrolling and notice the content. Most ads (60-85%) are scrolled past without a second look. Be realistic — do not give HIGH or VERY_HIGH unless the content is genuinely eye-catching for this specific persona.
 
 Output valid JSON only. Reasoning in Chinese (中文).
         """.trimIndent()
@@ -429,11 +420,11 @@ Output JSON:
         val platform = placement.platform
         val placementType = placement.placementType
 
-        val awarenessLine = if (ctx.brandAwareness != "never_heard") {
+        val awarenessLine = if (ctx.brandAwareness != BrandFamiliarity.NEVER_HEARD) {
             val desc = when (ctx.brandAwareness) {
-                "heard_not_tried" -> "听说过但从未购买或使用"
-                "tried_once" -> "曾经买过/试过，但不常用"
-                "regular_user" -> "经常购买，是这个品牌的老用户"
+                BrandFamiliarity.HEARD_NOT_TRIED -> "听说过但从未购买或使用"
+                BrandFamiliarity.TRIED_ONCE -> "曾经买过/试过，但不常用"
+                BrandFamiliarity.REGULAR_USER -> "经常购买，是这个品牌的老用户"
                 else -> ""
             }
             "\nYour awareness of this brand: $desc"
@@ -472,6 +463,8 @@ You stopped scrolling and are now looking at this content more closely on $platf
 Available factor tags:
 Positive: interest_match, creative_appeal, brand_trust, social_proof, need_match, entertainment_value
 Negative: no_interest, creative_boring, no_brand_trust, ad_fatigue, wrong_format, no_need, frequency_overload
+
+${clickBenchmark(placement.placementType, input.product.category)}
 
 Output valid JSON only. Reasoning in Chinese (中文).
         """.trimIndent()
@@ -519,11 +512,10 @@ Output JSON:
         }
 
         val awarenessDesc = when (ctx.brandAwareness) {
-            "never_heard" -> "从未听说过这个品牌"
-            "heard_not_tried" -> "听说过但从未购买或使用"
-            "tried_once" -> "曾经买过/试过，但不常用"
-            "regular_user" -> "经常购买，是这个品牌的老用户"
-            else -> "从未听说过这个品牌"
+            BrandFamiliarity.NEVER_HEARD -> "从未听说过这个品牌"
+            BrandFamiliarity.HEARD_NOT_TRIED -> "听说过但从未购买或使用"
+            BrandFamiliarity.TRIED_ONCE -> "曾经买过/试过，但不常用"
+            BrandFamiliarity.REGULAR_USER -> "经常购买，是这个品牌的老用户"
         }
 
         val competitorsText = if (input.competitors.isNotEmpty()) {
@@ -554,7 +546,7 @@ Brand loyalty: ${persona.consumptionHabits.brandLoyalty}
 Your awareness of "${input.product.brandName}": $awarenessDesc
 $currentUsage
 You've seen ${ctx.recentAdExposure} similar product ads/promotions this week.
-In this campaign simulation, you've already seen this brand ${campaignState.placementsSeen} times and noticed it ${campaignState.noticedCount} times. Fatigue score: ${campaignState.fatigueScore}. Campaign familiarity: ${campaignState.brandFamiliarity}.
+In this campaign simulation, you've already seen this brand ${campaignState.placementsSeen} times and noticed it ${campaignState.noticedCount} times. Fatigue score: ${campaignState.fatigueScore}. Campaign familiarity: ${campaignState.brandFamiliarity.label}.
 $intentLine
 
 You've clicked through and are now viewing the full product page on $platform.
@@ -562,6 +554,8 @@ You've clicked through and are now viewing the full product page on $platform.
 Available factor tags:
 Positive: interest_match, creative_appeal, price_acceptable, brand_trust, social_proof, urgency, need_match, entertainment_value
 Negative: no_interest, creative_boring, price_too_high, no_brand_trust, no_reviews, no_need, ad_fatigue, wrong_format, competitor_preference, impulse_resist, frequency_overload
+
+${conversionBenchmark(input)}
 
 Output valid JSON only. Reasoning in Chinese (中文).
         """.trimIndent()
@@ -615,11 +609,13 @@ Output JSON:
 
     private fun toStageDecision(
         dto: DecisionDto,
-        priorBaseProbability: Double? = null
+        stage: String = "attention",
+        priorBaseProbability: Double? = null,
+        calibrationCount: Int = 0
     ): StageDecision {
         val band = dto.likelihoodBand ?: if (dto.passed == true) LikelihoodBand.HIGH else LikelihoodBand.LOW
-        val rawProbability = (dto.probability ?: sampleProbability(band)).coerceIn(0.0, 1.0)
-        val probability = priorCalibrationService.applyPrior(rawProbability, priorBaseProbability)
+        val rawProbability = (dto.probability ?: sampleProbability(band, stage)).coerceIn(0.0, 1.0)
+        val probability = priorCalibrationService.applyPrior(rawProbability, priorBaseProbability, calibrationCount)
         val passed = dto.passed ?: samplePassed(probability)
         val positiveFactors = dto.positiveFactors.ifEmpty {
             if (passed && dto.factors.isNotEmpty()) dto.factors else emptyList()
@@ -640,13 +636,57 @@ Output JSON:
         )
     }
 
-    private fun sampleProbability(band: LikelihoodBand): Double {
-        val range = when (band) {
-            LikelihoodBand.VERY_LOW -> 0.02..0.12
-            LikelihoodBand.LOW -> 0.12..0.30
-            LikelihoodBand.MEDIUM -> 0.30..0.55
-            LikelihoodBand.HIGH -> 0.55..0.80
-            LikelihoodBand.VERY_HIGH -> 0.80..0.95
+    private fun clickBenchmark(placementType: PlacementType, category: String): String {
+        return when (placementType) {
+            PlacementType.KOL_SEEDING ->
+                "Real-world reference: KOL/influencer content, especially in beauty, can achieve 5-15% click-through rates since followers trust the creator. A \"HIGH\" CTR here means around 10-15%."
+            PlacementType.SEARCH ->
+                "Real-world reference: search ads capture high-intent users, so CTR can reach 5-12%. A \"HIGH\" CTR means around 8-12%."
+            else ->
+                "Real-world reference: in-feed/social ads typically see 2-6% CTR. A \"HIGH\" CTR means around 5-7%. Be realistic — most people scroll past without clicking."
+        }
+    }
+
+    private fun conversionBenchmark(input: SimulationInput): String {
+        val isImpulsePrice = input.product.price <= 100
+        val isWellKnown = input.brandAwareness == BrandAwareness.WELL_KNOWN || input.brandAwareness == BrandAwareness.TOP
+        return when {
+            isImpulsePrice && isWellKnown ->
+                "Real-world reference: for well-known brands at impulse-buy prices (under ¥100), post-click conversion rates of 3-8% are achievable. A \"HIGH\" CVR means around 6-8%. Popular beauty products on Xiaohongshu can reach even higher."
+            isImpulsePrice ->
+                "Real-world reference: for affordable products under ¥100, post-click conversion rates of 2-6% are typical. A \"HIGH\" CVR means around 4-6%."
+            else ->
+                "Real-world reference: for higher-priced products, post-click conversion rates are typically 0.5-3%. A \"HIGH\" CVR means around 2-4%. Most people browse without buying immediately."
+        }
+    }
+
+    /**
+     * Map likelihood band to a probability anchored to real ad industry ranges.
+     * Attention: 10-55% (most users scroll past). Click: varies by placement. Conversion: varies by price/brand.
+     */
+    private fun sampleProbability(band: LikelihoodBand, stage: String = "attention"): Double {
+        val range = when (stage) {
+            "attention" -> when (band) {
+                LikelihoodBand.VERY_LOW -> 0.05..0.15
+                LikelihoodBand.LOW -> 0.15..0.28
+                LikelihoodBand.MEDIUM -> 0.28..0.42
+                LikelihoodBand.HIGH -> 0.42..0.55
+                LikelihoodBand.VERY_HIGH -> 0.55..0.70
+            }
+            "click" -> when (band) {
+                LikelihoodBand.VERY_LOW -> 0.005..0.015
+                LikelihoodBand.LOW -> 0.015..0.035
+                LikelihoodBand.MEDIUM -> 0.035..0.06
+                LikelihoodBand.HIGH -> 0.06..0.10
+                LikelihoodBand.VERY_HIGH -> 0.10..0.18
+            }
+            else -> when (band) { // conversion
+                LikelihoodBand.VERY_LOW -> 0.003..0.012
+                LikelihoodBand.LOW -> 0.012..0.030
+                LikelihoodBand.MEDIUM -> 0.030..0.055
+                LikelihoodBand.HIGH -> 0.055..0.09
+                LikelihoodBand.VERY_HIGH -> 0.09..0.15
+            }
         }
         return ThreadLocalRandom.current().nextDouble(range.start, range.endInclusive)
     }
@@ -701,9 +741,9 @@ Output JSON:
         }
         val nextFatigue = (current.fatigueScore + fatigueIncrease).coerceAtMost(10)
         val nextBrandFamiliarity = when {
-            converted || nextClicked >= 2 -> "regular_user"
-            nextNoticed >= 2 -> "tried_once"
-            nextPlacementsSeen >= 1 && current.brandFamiliarity == "never_heard" -> "heard_not_tried"
+            converted || nextClicked >= 2 -> BrandFamiliarity.REGULAR_USER
+            nextNoticed >= 2 -> BrandFamiliarity.TRIED_ONCE
+            nextPlacementsSeen >= 1 && current.brandFamiliarity == BrandFamiliarity.NEVER_HEARD -> BrandFamiliarity.HEARD_NOT_TRIED
             else -> current.brandFamiliarity
         }
 

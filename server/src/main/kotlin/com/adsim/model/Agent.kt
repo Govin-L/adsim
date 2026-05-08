@@ -12,17 +12,8 @@ data class Agent(
     val simulationId: String,
     val persona: Persona,
     val decisions: Decisions? = null,
-    val placementDecisions: List<PlacementDecisions> = emptyList(),
     val placementOutcomes: List<PlacementOutcome> = emptyList(),
     val campaignState: AgentCampaignState = AgentCampaignState()
-)
-
-data class PlacementDecisions(
-    val placementIndex: Int,
-    val platform: String,
-    val placementType: PlacementType,
-    val decisions: Decisions,
-    val exposureEvent: ExposureEvent? = null
 )
 
 data class PlacementOutcome(
@@ -48,14 +39,21 @@ data class AgentCampaignState(
     val clickedCount: Int = 0,
     val convertedCount: Int = 0,
     val fatigueScore: Int = 0,
-    val brandFamiliarity: String = "never_heard"
+    val brandFamiliarity: BrandFamiliarity = BrandFamiliarity.NEVER_HEARD
 )
+
+enum class BrandFamiliarity(val label: String) {
+    NEVER_HEARD("never_heard"),
+    HEARD_NOT_TRIED("heard_not_tried"),
+    TRIED_ONCE("tried_once"),
+    REGULAR_USER("regular_user")
+}
 
 data class ConsumerContext(
     val currentBrand: String? = null,
     val currentProductPrice: Double? = null,
     val satisfaction: String? = null,  // "satisfied" / "neutral" / "looking_for_alternatives"
-    val brandAwareness: String = "never_heard",  // "never_heard" / "heard_not_tried" / "tried_once" / "regular_user"
+    val brandAwareness: BrandFamiliarity = BrandFamiliarity.NEVER_HEARD,
     val recentAdExposure: Int = 0
 )
 
@@ -100,7 +98,6 @@ data class StageDecision(
     val passed: Boolean,
     val reasoning: String,
     val factors: List<String> = emptyList(),
-    val score: Int = 0,  // keep for backward compat
     val likelihoodBand: LikelihoodBand? = null,
     val probability: Double? = null,
     val positiveFactors: List<String> = emptyList(),

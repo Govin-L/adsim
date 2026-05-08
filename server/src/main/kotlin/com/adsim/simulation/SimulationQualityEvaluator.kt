@@ -18,14 +18,7 @@ class SimulationQualityEvaluator {
         minSuccessRate: Double,
         utilization: AgentUtilization? = null
     ): QualityAssessment {
-        val simulatedSamples = agents.sumOf { agent ->
-            when {
-                agent.placementOutcomes.isNotEmpty() -> agent.placementOutcomes.size
-                agent.placementDecisions.isNotEmpty() -> agent.placementDecisions.size
-                agent.decisions != null -> 1
-                else -> 0
-            }
-        }
+        val simulatedSamples = agents.sumOf { it.placementOutcomes.size }
         val generationSuccessRate = if (requestedAgents > 0) generatedAgents.toDouble() / requestedAgents else 0.0
         val sampleSuccessRate = if (plannedSamples > 0) simulatedSamples.toDouble() / plannedSamples else 0.0
 
@@ -79,11 +72,7 @@ class SimulationQualityEvaluator {
         utilization: AgentUtilization?
     ): List<ReasonabilityWarning> {
         val samples = agents.flatMap { agent ->
-            when {
-                agent.placementOutcomes.isNotEmpty() -> agent.placementOutcomes.map { it.decisions }
-                agent.placementDecisions.isNotEmpty() -> agent.placementDecisions.map { it.decisions }
-                else -> emptyList()
-            }
+            agent.placementOutcomes.map { it.decisions }
         }
         if (samples.isEmpty()) return emptyList()
 
@@ -104,25 +93,25 @@ class SimulationQualityEvaluator {
                 message = "当前曝光样本较少，结果波动可能偏大。"
             )
         }
-        if (attentionRate > 0.8) {
+        if (attentionRate > 0.7) {
             warnings += ReasonabilityWarning(
                 code = "attention_too_high",
                 severity = "medium",
-                message = "注意率明显偏高，可能高估了素材首屏吸引力。"
+                message = "注意率超过 70%，在真实社交信息流中极少出现，可能高估了素材吸引力。"
             )
         }
-        if (ctr > 0.6) {
+        if (ctr > 0.12) {
             warnings += ReasonabilityWarning(
                 code = "ctr_too_high",
                 severity = "high",
-                message = "CTR 明显偏高，当前点击意愿可能不够可信。"
+                message = "CTR 超过 12%，远高于行业典型范围（1-5%），当前点击意愿可能严重高估。"
             )
         }
-        if (cvr > 0.4) {
+        if (cvr > 0.10) {
             warnings += ReasonabilityWarning(
                 code = "cvr_too_high",
                 severity = "high",
-                message = "CVR 明显偏高，当前转化结果可能偏乐观。"
+                message = "CVR 超过 10%，远高于电商典型范围（0.5-4%），当前转化结果可能严重高估。"
             )
         }
         if (utilization != null && utilization.searchEligibleRate > 0.7) {
@@ -130,6 +119,22 @@ class SimulationQualityEvaluator {
                 code = "search_coverage_too_high",
                 severity = "medium",
                 message = "SEARCH 覆盖过广，搜索意图 gate 可能仍然过松。"
+            )
+        }
+
+        // Structural constraint: funnel must decrease monotonically
+        if (attentionRate < ctr) {
+            warnings += ReasonabilityWarning(
+                code = "funnel_inversion",
+                severity = "high",
+                message = "注意→点击漏斗反常：点击率高于注意率，模拟结果可能存在逻辑矛盾。"
+            )
+        }
+        if (ctr < cvr) {
+            warnings += ReasonabilityWarning(
+                code = "funnel_inversion",
+                severity = "high",
+                message = "点击→转化漏斗反常：转化率高于点击率，模拟结果可能存在逻辑矛盾。"
             )
         }
 

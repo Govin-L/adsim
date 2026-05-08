@@ -308,7 +308,8 @@
         "subtitle": "Current convergence baseline distilled from {{count}} calibration runs",
         "attention": "Attention prior",
         "ctr": "CTR prior",
-        "cvr": "CVR prior"
+        "cvr": "CVR prior",
+        "converged": "Converged"
       },
       "form": {
         "title": "Backfill actual performance",
@@ -318,7 +319,8 @@
         "ctrPlaceholder": "CTR %",
         "cvrPlaceholder": "CVR %",
         "cpaPlaceholder": "CPA"
-      }
+      },
+      "optional": "Optional"
     },
     "agents": {
       "title": "Agents",
@@ -331,6 +333,12 @@
     "failed": {
       "title": "Simulation failed",
       "retry": "Try Again"
+    },
+    "section": {
+      "data": "Data Details",
+      "reference": "Reference Metrics",
+      "referenceHint": "These numbers are industry benchmark estimates and simulation statistics. They are not suitable as actual ad performance predictions, but are useful for plan comparison and segment analysis.",
+      "system": "System Info"
     },
     "loading": "Loading...",
     "notFound": "Simulation not found"

@@ -19,10 +19,7 @@ class ResultAggregator {
         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
     /**
-     * Aggregate agent decisions into campaign-level and placement-level metrics.
-     * Placement-level results are derived from replayable placement traces when available
-     * (placementOutcomes first, placementDecisions as fallback), while top-level results
-     * summarize all simulated placement exposures.
+     * Aggregate agent placement outcomes into campaign-level and placement-level metrics.
      */
     suspend fun aggregate(
         agents: List<Agent>,
@@ -31,13 +28,8 @@ class ResultAggregator {
         chatModel: ChatModel? = null,
         deliveryPlan: DeliveryPlan? = null
     ): SimulationResults {
-        val hasPlacementTraces = agents.any { placementTraceSamples(it).isNotEmpty() }
-        val overallSamples = buildOverallSamples(agents, hasPlacementTraces)
-        val totalPopulation = if (hasPlacementTraces) {
-            overallSamples.size
-        } else {
-            agents.size
-        }
+        val overallSamples = buildOverallSamples(agents)
+        val totalPopulation = overallSamples.size
 
         val overall = aggregateSamples(
             totalPopulation = totalPopulation,
@@ -48,7 +40,7 @@ class ResultAggregator {
         )
 
         val placementResults = placements.mapIndexed { placementIndex, placement ->
-            val placementSamples = buildPlacementSamples(agents, placementIndex, hasPlacementTraces)
+            val placementSamples = buildPlacementSamples(agents, placementIndex)
             val plannedSamples = placementSamples.size
             val aggregate = aggregateSamples(
                 totalPopulation = plannedSamples,
@@ -105,55 +97,31 @@ class ResultAggregator {
         )
     }
 
-    private fun buildOverallSamples(agents: List<Agent>, hasPlacementTraces: Boolean): List<DecisionSample> {
-        return if (hasPlacementTraces) {
-            agents.flatMap { agent ->
-                placementTraceSamples(agent).map { sample ->
-                    DecisionSample(agent = agent, decisions = sample.decisions)
-                }
-            }
-        } else {
-            agents.mapNotNull { agent ->
-                agent.decisions?.let { DecisionSample(agent = agent, decisions = it) }
+    private fun buildOverallSamples(agents: List<Agent>): List<DecisionSample> {
+        return agents.flatMap { agent ->
+            agent.placementOutcomes.map { outcome ->
+                DecisionSample(agent = agent, decisions = outcome.decisions)
             }
         }
     }
 
     private fun buildPlacementSamples(
         agents: List<Agent>,
-        placementIndex: Int,
-        hasPlacementTraces: Boolean
+        placementIndex: Int
     ): List<DecisionSample> {
-        return if (hasPlacementTraces) {
-            agents.flatMap { agent ->
-                placementTraceSamples(agent)
-                    .filter { it.placementIndex == placementIndex }
-                    .map { sample -> DecisionSample(agent = agent, decisions = sample.decisions) }
-            }
-        } else if (placementIndex == 0) {
-            agents.mapNotNull { agent ->
-                agent.decisions?.let { DecisionSample(agent = agent, decisions = it) }
-            }
-        } else {
-            emptyList()
+        return agents.flatMap { agent ->
+            agent.placementOutcomes
+                .filter { it.placementIndex == placementIndex }
+                .map { DecisionSample(agent = agent, decisions = it.decisions) }
         }
     }
 
     private fun placementTraceSamples(agent: Agent): List<PlacementSample> {
-        return when {
-            agent.placementOutcomes.isNotEmpty() -> agent.placementOutcomes.map { outcome ->
-                PlacementSample(
-                    placementIndex = outcome.placementIndex,
-                    decisions = outcome.decisions
-                )
-            }
-            agent.placementDecisions.isNotEmpty() -> agent.placementDecisions.map { sample ->
-                PlacementSample(
-                    placementIndex = sample.placementIndex,
-                    decisions = sample.decisions
-                )
-            }
-            else -> emptyList()
+        return agent.placementOutcomes.map { outcome ->
+            PlacementSample(
+                placementIndex = outcome.placementIndex,
+                decisions = outcome.decisions
+            )
         }
     }
 

@@ -26,7 +26,7 @@ class SimulationEngineTest {
                     baseAttention = 1.0,
                     baseClick = 1.0,
                     baseConversion = 0.1,
-                    calibrationCount = 2
+                    calibrationCount = 0
                 )
             )
         val engine = SimulationEngine(
@@ -116,16 +116,14 @@ class SimulationEngineTest {
         val decidedAgent = savedAgent.single()
         assertEquals(listOf(1), progress)
         assertEquals(1, decidedAgent.placementOutcomes.size)
-        assertEquals(1, decidedAgent.placementDecisions.size)
         assertEquals(PlacementType.INFO_FEED, decidedAgent.placementOutcomes[0].placementType)
         assertEquals(exposureEvents.first(), decidedAgent.placementOutcomes.first().exposureEvent)
         assertNotNull(decidedAgent.decisions)
         assertEquals(decidedAgent.placementOutcomes.first().decisions, decidedAgent.decisions)
-        assertEquals(decidedAgent.placementOutcomes.first().decisions, decidedAgent.placementDecisions.first().decisions)
         assertTrue(decidedAgent.placementOutcomes.first().decisions.click.passed)
         assertEquals(LikelihoodBand.HIGH, decidedAgent.placementOutcomes.first().decisions.attention.likelihoodBand)
         assertEquals(1.0, decidedAgent.placementOutcomes.first().decisions.click.probability)
-        assertEquals(0.02, decidedAgent.placementOutcomes.first().decisions.conversion.probability ?: 0.0, 0.0001)
+        assertEquals(0.005, decidedAgent.placementOutcomes.first().decisions.conversion.probability ?: 0.0, 0.0001)
         assertEquals(listOf("price_too_high"), decidedAgent.placementOutcomes.first().decisions.conversion.negativeFactors)
         assertEquals(1, decidedAgent.campaignState.placementsSeen)
         assertEquals(1, decidedAgent.campaignState.noticedCount)
